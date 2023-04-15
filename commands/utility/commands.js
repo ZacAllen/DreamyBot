@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js')
-const pre = process.env.PREFIX
+const pre = process.env.COMMAND_PREFIX
 
 module.exports = {
   data: new SlashCommandBuilder().setName('commands').setDescription('Display all bot commands'),

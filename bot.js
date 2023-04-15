@@ -63,7 +63,7 @@ const connections = new Map()
 
 const audioManager = new AudioManager()
 
-const playPrefix = process.env.PREFIX
+const playPrefix = process.env.COMMAND_PREFIX
 
 client.on('messageCreate', (message) => {
   if (message.author.bot || message.channel.type === `DM`) return
