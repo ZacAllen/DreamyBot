@@ -57,8 +57,6 @@ for (const file of eventFiles) {
   }
 }
 
-client.login(process.env.TOKEN);
-
 // client.on('messageCreate', (message) => {
 //   if (message.content.includes('hello') && message.author.username !== 'DreamyBot')
 //     message.reply('hello' + ' ' + message.author.username) //reply hello word message with senders name
@@ -68,7 +66,7 @@ client.login(process.env.TOKEN);
 
 const connections = new Map();
 
-const audioManager = new AudioManager();
+let audioManager = new AudioManager();
 
 const playPrefix = process.env.COMMAND_PREFIX;
 
@@ -87,7 +85,7 @@ client.on("messageCreate", async (message) => {
       return info.title;
     })
     .catch((err) => {
-      console.log(err);
+      if (args[1]) console.log(err);
       return null;
     });
 
@@ -104,6 +102,10 @@ client.on("messageCreate", async (message) => {
         return message.channel.send({ content: `Please provide a song` });
       const uvc =
         message.member.voice.channel || message.guild.members.me.voice.channel;
+
+      if (!audioManager) {
+        audioManager = new AudioManager();
+      }
       audioManager
         .play(uvc, args[1], {
           quality: "high",
@@ -229,3 +231,15 @@ client.on("messageCreate", async (message) => {
       break;
   }
 });
+
+client.on("voiceStateUpdate", async (oldState, newState) => {
+  if (newState?.id === "1094140206367653940") {
+    //check if bot left vc
+    if (newState?.channelId == null && oldState?.channelId != null) {
+      audioManager.destroy(); //destroy audiomanager and end playback
+    }
+  }
+  // ...
+});
+
+client.login(process.env.TOKEN);
