@@ -155,7 +155,6 @@ client.on("messageCreate", async (message) => {
         .skip(vc)
         .then(() => message.channel.send({ content: `Song skipped.` }))
         .catch((err) => {
-          console.log(err);
           message.channel.send({
             content: `There was an error while skipping the song!`,
           });
@@ -229,17 +228,32 @@ client.on("messageCreate", async (message) => {
         content: `The queue has successfully been shufffled`,
       });
       break;
+    case "clear":
+      if (!vc)
+        return message.channel.send({
+          content: `There is no queue!`,
+        });
+      audioManager.clearqueue(vc);
+      message.channel.send({
+        content: `The queue has successfully been cleared`,
+      });
   }
 });
 
 client.on("voiceStateUpdate", async (oldState, newState) => {
-  if (newState?.id === "1094140206367653940") {
+  if (newState?.id === "1094140206367653940" && audioManager) {
     //check if bot left vc
+    let error = false;
     if (newState?.channelId == null && oldState?.channelId != null) {
-      audioManager.destroy(); //destroy audiomanager and end playback
+      try {
+        //destroy audiomanager and end playback
+        audioManager.destroy();
+      } catch (err) {
+        console.log("***", err);
+        error = true;
+      }
     }
   }
-  // ...
 });
 
 client.login(process.env.TOKEN);
