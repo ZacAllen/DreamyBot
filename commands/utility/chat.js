@@ -29,29 +29,40 @@ module.exports = {
     console.log('*** Your response is: ', completion?.data?.choices[0]?.message)
 
     const result = completion?.data?.choices[0]?.message?.content
-    let splitResult1 = null
-    let splitResult2 = null
+    let splitResult = []
     let tooLong = false
 
+    //check if result is longer than discord 2000 count message limit
     if (result.length > 1999) {
       console.log('*** RESULT LENGTH', result.length)
       tooLong = true
+      let startIndex = 0
+      for (var i = 0; i < result.length; i++) {
+        if (i % 1999 == 0) {
+          splitResult.push(result.substring(startIndex, i))
+          startIndex = i
+        }
+        //once i reaches end, add remaining to splitResult
+        i == result.length - 1 && splitResult.push(result.substring(startIndex, i))
+      }
     }
 
     /* I initially wrote this thinking tooLong would be reused someplace else, excuse the redundancy */
     if (tooLong) {
-      splitResult1 = result.slice(0, result.length / 2)
-      splitResult2 = result.slice(result.length / 2, result.length)
       await interaction.editReply(`**"${interaction.options.getString('message')}":**
       \`\`\`fix
-      ${splitResult1}-
+      ${splitResult[0]}-
       (Part 1)
       \`\`\``)
-      await interaction.channel.send({
-        content: `\`\`\`fix
-      -${splitResult2}
-      (Part 2)
-      \`\`\``,
+      splitResult.forEach((section, index) => {
+        if (section !== splitResult[0]) {
+          interaction.channel.send({
+            content: `\`\`\`fix
+          -${splitResult2}
+          (Part ${index + 1})
+          \`\`\``,
+          })
+        }
       })
     } else {
       await interaction
