@@ -23,7 +23,7 @@ module.exports = {
   async execute(interaction) {
     await interaction.reply("Let me think about it...");
     let completion = await openai.createChatCompletion({
-      model: "gpt-3.5-turbo-0613",
+      model: "gpt-4",
       messages: [
         {
           role: "system",
