@@ -31,6 +31,6 @@ module.exports = {
     
     **~ Utility ~**
     
-    **/chat:** Ask DreamyBot anything (powered by ChatGPT 3.5 🤓).`);
+    **/chat:** Ask DreamyBot anything (powered by ChatGPT 4 🤓).`);
   },
 };
