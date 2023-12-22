@@ -24,9 +24,7 @@ const commandFolders = fs.readdirSync(foldersPath);
 
 for (const folder of commandFolders) {
   const commandsPath = path.join(foldersPath, folder);
-  const commandFiles = fs
-    .readdirSync(commandsPath)
-    .filter((file) => file.endsWith(".js")); //filter non js files
+  const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith(".js")); //filter non js files
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
     const command = require(filePath);
@@ -34,18 +32,14 @@ for (const folder of commandFolders) {
     if ("data" in command && "execute" in command) {
       client.commands.set(command.data.name, command);
     } else {
-      console.log(
-        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
-      );
+      console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
     }
   }
 }
 
 // Reading event files
 const eventsPath = path.join(__dirname, "events");
-const eventFiles = fs
-  .readdirSync(eventsPath)
-  .filter((file) => file.endsWith(".js"));
+const eventFiles = fs.readdirSync(eventsPath).filter((file) => file.endsWith(".js"));
 
 for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
@@ -85,23 +79,18 @@ client.on("messageCreate", async (message) => {
       return info.title;
     })
     .catch((err) => {
-      if (args[1]) console.log(err);
+      if (args[1]) console.log("Wus happenin", args[1], err);
       return null;
     });
 
   switch (args[0].toLowerCase()) {
     case "play":
-      if (
-        !message.member.voice.channel &&
-        !message.guild.members.me.voice.channel
-      )
+      if (!message.member.voice.channel && !message.guild.members.me.voice.channel)
         return message.channel.send({
           content: `Please join a voice channel in order to play a song!`,
         });
-      if (!args[1])
-        return message.channel.send({ content: `Please provide a song` });
-      const uvc =
-        message.member.voice.channel || message.guild.members.me.voice.channel;
+      if (!args[1]) return message.channel.send({ content: `Please provide a song` });
+      const uvc = message.member.voice.channel || message.guild.members.me.voice.channel;
 
       if (!audioManager) {
         audioManager = new AudioManager();
@@ -166,8 +155,8 @@ client.on("messageCreate", async (message) => {
           content: `There is currently nothing playing!`,
         });
       audioManager
-        .loop(vc, audioManager.looptypes.loop)
-        .then(() => message.channel.send({ content: `Looping current song.` }))
+        .loop(vc, audioManager?.looptypes?.loop)
+        .then(() => message?.channel.send({ content: `Looping current song.` }))
         .catch((err) => {
           console.log(err);
           message.channel.send({
@@ -199,10 +188,7 @@ client.on("messageCreate", async (message) => {
         else text += `\n**[${index + 1}]** ${song.url}`;
         return text;
       }, `__**QUEUE**__`);
-      const queueEmbed = new discord.EmbedBuilder()
-        .setColor(`Blurple`)
-        .setTitle(`Queue`)
-        .setDescription(queue);
+      const queueEmbed = new discord.EmbedBuilder().setColor(`Blurple`).setTitle(`Queue`).setDescription(queue);
       message.channel.send({ embeds: [queueEmbed] });
       break;
     case "volume":
@@ -210,8 +196,7 @@ client.on("messageCreate", async (message) => {
         return message.channel.send({
           content: `There is currently nothing playing!`,
         });
-      if (!args[1])
-        return message.channel.send({ content: `Please provide the volume` });
+      if (!args[1]) return message.channel.send({ content: `Please provide the volume` });
       if (Number(args[1]) < 1 || Number(args[1]) > 10)
         return message.channel.send({
           content: `Please provide a volume between 1-10`,
@@ -249,10 +234,26 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
         //destroy audiomanager and end playback
         audioManager.destroy();
       } catch (err) {
-        console.log("***", err);
+        console.log("*** UMMM WTF", err);
         error = true;
       }
     }
+  }
+});
+
+// --------------------------------------------------MESSAGE EDIT FUNCS--------------------------------------------------------------------
+client.on("messageCreate", async (message) => {
+  const mess = message.content;
+  const twitterLink = ["https://x.com", "https://twitter.com"].find((link) => mess.includes(link));
+
+  if (twitterLink) {
+    message.reply({
+      /*
+      Empty character unicode 
+      */
+      content: `[⠀](${mess.replace(twitterLink, "https://vxtwitter.com")})`,
+      // content: mess.replace(twitterLink, "https://vxtwitter.com"),
+    });
   }
 });
 
