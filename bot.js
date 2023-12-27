@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
 const { AudioManager } = require("discordaudio");
-const discord = require("discord.js");
+const { discord, EmbedBuilder } = require("discord.js");
 const ytstream = require("yt-stream");
 
 const client = new Client({
@@ -241,7 +241,12 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
   }
 });
 
-// --------------------------------------------------MESSAGE EDIT FUNCS--------------------------------------------------------------------
+// --------------------------------------------------MESSAGE EMBED FUNCS--------------------------------------------------------------------
+
+/**
+ * Create vxtwitter link from non-embedable native links. Replies to user with vx link.
+ * @params { object } message
+ */
 client.on("messageCreate", async (message) => {
   const mess = message.content;
   const twitterLink = ["https://x.com", "https://twitter.com"].find((link) => mess.includes(link));
@@ -252,8 +257,39 @@ client.on("messageCreate", async (message) => {
       Empty character unicode 
       */
       content: `[⠀](${mess.replace(twitterLink, "https://vxtwitter.com")})`,
-      // content: mess.replace(twitterLink, "https://vxtwitter.com"),
     });
+  }
+});
+
+/**
+ * Create tiktok embed for tiktok videos. Replies to user with vx embed and suppresses native embed.
+ * @params { object } message
+ */
+client.on("messageCreate", async (message) => {
+  const mess = message.content;
+  const tiktokLink = ["https://tiktok.com", "https://www.tiktok.com"].find((link) => mess.includes(link));
+
+  if (tiktokLink) {
+    message.reply({
+      content: `[⠀](${mess.replace(tiktokLink, "https://vxtiktok.com")})`,
+    });
+    message.author.bot ? false : message.suppressEmbeds(true);
+  }
+});
+
+/**
+ * Create reddit embed for reddit links. Replies to user with rxddit link, and suppresses native embed.
+ * @params { object } message
+ */
+client.on("messageCreate", (message) => {
+  const mess = message.content;
+  const redditLink = ["https://reddit.com", "https://www.reddit.com"].find((link) => mess.includes(link));
+
+  if (redditLink) {
+    message.reply({
+      content: `[⠀](${mess.replace(redditLink, "https://rxddit.com")})`,
+    });
+    message.author.bot ? false : message.suppressEmbeds(true);
   }
 });
 
