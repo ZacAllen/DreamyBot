@@ -281,7 +281,7 @@ client.on("messageCreate", async (message) => {
  * Create reddit embed for reddit links. Replies to user with rxddit link, and suppresses native embed.
  * @params { object } message
  */
-client.on("messageCreate", (message) => {
+client.on("messageCreate", async (message) => {
   const mess = message.content;
   const redditLink = ["https://reddit.com", "https://www.reddit.com"].find((link) => mess.includes(link));
 
