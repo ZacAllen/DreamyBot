@@ -258,6 +258,7 @@ client.on("messageCreate", async (message) => {
       */
       content: `[⠀](${mess.replace(twitterLink, "https://vxtwitter.com")})`,
     });
+    message.author.bot ? false : message.suppressEmbeds(true);
   }
 });
 
