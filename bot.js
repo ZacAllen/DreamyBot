@@ -251,7 +251,7 @@ client.on("messageCreate", async (message) => {
   const mess = message.content;
   const twitterLink = ["https://x.com", "https://twitter.com"].find((link) => mess.includes(link));
 
-  if (twitterLink) {
+  if (twitterLink && !message.author.bot) {
     message.reply({
       /*
       Empty character unicode 
