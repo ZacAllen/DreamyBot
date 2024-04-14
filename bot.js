@@ -78,21 +78,22 @@ client.on("messageCreate", async (message) => {
   let playError = false;
 
   // Only fetch title for commands that need it!
-  let videoTitle = includeCommands.includes(args[0])
-    ? await ytstream
-        .getInfo(args[1])
-        .then((info) => {
-          return info.title;
-        })
-        .catch((err) => {
-          if (args[1]) console.log("Error playing YT link!", args[1], err);
-          playError = true;
-          message.channel.send({
-            content: `${err} - Please provide a valid video link.`,
-          });
-          return null;
-        })
-    : null;
+  let videoTitle =
+    includeCommands.includes(args[0]) && !args[1].includes("/playlist")
+      ? await ytstream
+          .getInfo(args[1])
+          .then((info) => {
+            return info.title;
+          })
+          .catch((err) => {
+            if (args[1]) console.log("Error playing YT link!", args[1], err);
+            playError = true;
+            message.channel.send({
+              content: `${err} - Please provide a valid video link.`,
+            });
+            return null;
+          })
+      : null;
 
   switch (args[0].toLowerCase()) {
     case "play":
