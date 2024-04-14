@@ -73,15 +73,26 @@ client.on("messageCreate", async (message) => {
 
   const vc = connections.get(message.guild.members.me.voice.channel?.id);
 
-  let videoTitle = await ytstream
-    .getInfo(args[1])
-    .then((info) => {
-      return info.title;
-    })
-    .catch((err) => {
-      if (args[1]) console.log("Wus happenin", args[1], err);
-      return null;
-    });
+  const includeCommands = [`play`];
+
+  let playError = false;
+
+  // Only fetch title for commands that need it!
+  let videoTitle = includeCommands.includes(args[0])
+    ? await ytstream
+        .getInfo(args[1])
+        .then((info) => {
+          return info.title;
+        })
+        .catch((err) => {
+          if (args[1]) console.log("Error playing YT link!", args[1], err);
+          playError = true;
+          message.channel.send({
+            content: `${err} - Please provide a valid video link.`,
+          });
+          return null;
+        })
+    : null;
 
   switch (args[0].toLowerCase()) {
     case "play":
@@ -102,6 +113,7 @@ client.on("messageCreate", async (message) => {
           volume: 10,
         })
         .then((queue) => {
+          if (playError) return;
           connections.set(uvc.id, uvc);
           if (queue === false)
             message.channel.send({
@@ -109,7 +121,7 @@ client.on("messageCreate", async (message) => {
             });
           else
             message.channel.send({
-              content: `Your song has been added to the queue!`,
+              content: `${videoTitle ? videoTitle : "Your song"} has been added to the queue!`,
             });
         })
         .catch((err) => {
@@ -128,41 +140,52 @@ client.on("messageCreate", async (message) => {
       message.channel.send({ content: `Player paused.` });
       break;
     case "resume":
-      if (!vc)
-        return message.channel.send({
-          content: `There is currently nothing playing!`,
-        });
-      audioManager.resume(vc);
-      message.channel.send({ content: `Resuming playback.` });
+      {
+        if (!vc)
+          return message.channel.send({
+            content: `There is currently nothing playing!`,
+          });
+        const queue = audioManager.queue(vc);
+        audioManager.resume(vc);
+        message.channel.send({ content: `Resuming playback of **${queue[0]?.title}.**` });
+      }
       break;
     case "skip":
-      if (!vc)
-        return message.channel.send({
-          content: `There is currently nothing playing!`,
-        });
-      audioManager
-        .skip(vc)
-        .then(() => message.channel.send({ content: `Song skipped.` }))
-        .catch((err) => {
-          message.channel.send({
-            content: `There was an error while skipping the song!`,
+      {
+        if (!vc)
+          return message.channel.send({
+            content: `There is currently nothing playing!`,
           });
-        });
+        const queue = audioManager.queue(vc);
+        audioManager
+          .skip(vc)
+          .then(() => {
+            message.channel.send({ content: `Skipping song **${queue[0]?.title || ""}.**` });
+          })
+          .catch((err) => {
+            message.channel.send({
+              content: `There was an error while skipping the song!`,
+            });
+          });
+      }
       break;
     case "loop":
-      if (!vc)
-        return message.channel.send({
-          content: `There is currently nothing playing!`,
-        });
-      audioManager
-        .loop(vc, audioManager?.looptypes?.loop)
-        .then(() => message?.channel.send({ content: `Looping current song.` }))
-        .catch((err) => {
-          console.log(err);
-          message.channel.send({
-            content: `There was an error while looping the song!`,
+      {
+        if (!vc)
+          return message.channel.send({
+            content: `There is currently nothing playing!`,
           });
-        });
+        const queue = audioManager.queue(vc);
+        audioManager
+          .loop(vc, audioManager?.looptypes?.loop)
+          .then(() => message?.channel.send({ content: `Looping current song ${queue[0]?.title || ""}.` }))
+          .catch((err) => {
+            console.log(err);
+            message.channel.send({
+              content: `There was an error while looping the song!`,
+            });
+          });
+      }
       break;
     case "stop":
       if (!vc)
@@ -173,23 +196,30 @@ client.on("messageCreate", async (message) => {
       message.channel.send({ content: `Playback stopped!` });
       break;
     case "queue":
-      if (!vc)
-        return message.channel.send({
-          content: `There is currently nothing playing!`,
-        });
-      const queue = audioManager.queue(vc).reduce((text, song, index) => {
-        if (index > 50) {
+      {
+        if (!vc)
+          return message.channel.send({
+            content: `There is currently nothing playing!`,
+          });
+        const queue = audioManager.queue(vc).reduce((text, song, index) => {
+          if (index > 50) {
+            return text;
+          } else if (index > 49) {
+            text += `\n...`;
+            return text;
+          }
+          if (song.title) text += `\n**[${index + 1}]** ${song.title}`;
+          else text += `\n**[${index + 1}]** ${song.url}`;
           return text;
-        } else if (index > 49) {
-          text += `\n...`;
-          return text;
+        }, `__**QUEUE**__`);
+        const queueEmbed = new EmbedBuilder().setColor(`Blurple`).setTitle(`Queue`).setDescription(queue);
+        if (queueEmbed) {
+          message.channel.send({ embeds: [queueEmbed] });
+        } else {
+          message.channel.send({ content: `There was an error while reading the queue!` });
         }
-        if (song.title) text += `\n**[${index + 1}]** ${song.title}`;
-        else text += `\n**[${index + 1}]** ${song.url}`;
-        return text;
-      }, `__**QUEUE**__`);
-      const queueEmbed = new discord.EmbedBuilder().setColor(`Blurple`).setTitle(`Queue`).setDescription(queue);
-      message.channel.send({ embeds: [queueEmbed] });
+      }
+
       break;
     case "volume":
       if (!vc)
@@ -232,9 +262,11 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
     if (newState?.channelId == null && oldState?.channelId != null) {
       try {
         //destroy audiomanager and end playback
-        audioManager.destroy();
+        if (audioManager) {
+          audioManager.destroy();
+        }
       } catch (err) {
-        console.log("*** UMMM WTF", err);
+        // console.log("*** AudioManager Destroy error?", err);
         error = true;
       }
     }
@@ -291,6 +323,7 @@ client.on("messageCreate", async (message) => {
       content: `[⠀](${mess.replace(redditLink, "https://rxddit.com")})`,
     });
     message.author.bot ? false : message.suppressEmbeds(true);
+    console.log("*** Suppressing Reddit Embed", message);
   }
 });
 

@@ -2,9 +2,7 @@ const { SlashCommandBuilder } = require("discord.js");
 const pre = process.env.COMMAND_PREFIX;
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName("commands")
-    .setDescription("Display all bot commands"),
+  data: new SlashCommandBuilder().setName("commands").setDescription("Display all bot commands"),
   async execute(interaction) {
     await interaction.reply(`Hey ${interaction.user.username}, here's a list of my abilities:
 
@@ -31,6 +29,6 @@ module.exports = {
     
     **~ Utility ~**
     
-    **/chat:** Ask DreamyBot anything (powered by ChatGPT 3.5 🤓).`);
+    **/chat:** Ask DreamyBot anything (powered by ChatGPT 4 🤓).`);
   },
 };
