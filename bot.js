@@ -5,6 +5,7 @@ const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
 const { AudioManager } = require("discordaudio");
 const { discord, EmbedBuilder } = require("discord.js");
 const ytstream = require("yt-stream");
+const youtubedl = require("youtube-dl-exec");
 
 const client = new Client({
   intents: [
@@ -94,6 +95,21 @@ client.on("messageCreate", async (message) => {
             return null;
           })
       : null;
+  if (includeCommands.includes(args[0]) && args[1].includes("/playlist")) {
+    videoTitle = await ytstream
+      .getPlaylist(args[1])
+      .then((info) => {
+        // console.log("Playlist count", info.videos.length);
+        return info.title;
+      })
+      .catch((err) => {
+        playError = true;
+        message.channel.send({
+          content: `${err} - Please provide a valid playlist link.`,
+        });
+        return null;
+      });
+  }
 
   switch (args[0].toLowerCase()) {
     case "play":
@@ -285,13 +301,13 @@ client.on("messageCreate", async (message) => {
   const twitterLink = ["https://x.com", "https://twitter.com"].find((link) => mess.includes(link));
 
   if (twitterLink && !message.author.bot) {
+    message.author.bot ? false : message.suppressEmbeds(true), message.suppressEmbeds(true);
     message.reply({
       /*
       Empty character unicode 
       */
       content: `[⠀](${mess.replace(twitterLink, "https://vxtwitter.com")})`,
     });
-    message.author.bot ? false : message.suppressEmbeds(true);
   }
 });
 
@@ -304,10 +320,10 @@ client.on("messageCreate", async (message) => {
   const tiktokLink = ["https://tiktok.com", "https://www.tiktok.com"].find((link) => mess.includes(link));
 
   if (tiktokLink) {
+    message.author.bot ? false : message.suppressEmbeds(true), message.suppressEmbeds(true);
     message.reply({
       content: `[⠀](${mess.replace(tiktokLink, "https://vxtiktok.com")})`,
     });
-    message.author.bot ? false : message.suppressEmbeds(true);
   }
 });
 
@@ -320,10 +336,10 @@ client.on("messageCreate", async (message) => {
   const redditLink = ["https://reddit.com", "https://www.reddit.com"].find((link) => mess.includes(link));
 
   if (redditLink) {
+    message.author.bot ? false : message.suppressEmbeds(true), message.suppressEmbeds(true);
     message.reply({
       content: `[⠀](${mess.replace(redditLink, "https://rxddit.com")})`,
     });
-    message.author.bot ? false : message.suppressEmbeds(true);
     console.log("*** Suppressing Reddit Embed", message);
   }
 });

@@ -19,6 +19,7 @@
     "openai": "^3.3.0",
     "pretty-ms": "^8.0.0",
     "youtube-api": "^3.0.1",
+    "youtube-dl-exec": "^3.0.0",
     "youtube-search": "^1.1.6",
     "yt-stream": "^1.4.10",
     "ytdl-core": "^4.11.3",
