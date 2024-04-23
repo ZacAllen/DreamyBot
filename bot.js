@@ -229,7 +229,10 @@ client.on("messageCreate", async (message) => {
           else text += `\n**[${index + 1}]** ${song.url}`;
           return text;
         }, `__**QUEUE**__`);
-        const queueEmbed = new EmbedBuilder().setColor(`Blurple`).setTitle(`Queue`).setDescription(queue);
+        const queueEmbed = new EmbedBuilder()
+          .setColor(`Blurple`)
+          .setTitle(`Queue: [${audioManager.queue(vc).length}] Songs`)
+          .setDescription(queue);
         if (queueEmbed) {
           message.channel.send({ embeds: [queueEmbed] });
         } else {
