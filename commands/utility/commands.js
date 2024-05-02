@@ -29,6 +29,8 @@ module.exports = {
     
     **~ Utility ~**
     
-    **/chat:** Ask DreamyBot anything (powered by ChatGPT 4 🤓).`);
+    **/chat:** Ask DreamyBot anything (powered by ChatGPT 4 🤓).
+    
+    **/image:** Ask DreamyBot to create whatever you can imagine! (powered by Dall-e 3 🤓).`);
   },
 };

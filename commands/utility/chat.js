@@ -1,13 +1,10 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { config } = require("dotenv");
-const { Configuration, OpenAIApi } = require("openai");
+const { OpenAI } = require("openai");
 const openaikey = process.env.GPT_API_KEY;
 
-const configuration = new Configuration({
+const openai = new OpenAI({
   apiKey: openaikey,
 });
-
-const openai = new OpenAIApi(configuration);
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,7 +16,7 @@ module.exports = {
 
   async execute(interaction) {
     await interaction.reply("Let me think about it...");
-    let completion = await openai.createChatCompletion({
+    let completion = await openai.chat.completions.create({
       model: "gpt-4-1106-preview",
       messages: [
         {
@@ -27,13 +24,11 @@ module.exports = {
           content: `${interaction.options.getString("message")}`,
         },
       ],
-      // model: 'text-davinci-003',
-      // prompt: `${interaction.options.getString('message')}`,
     });
 
-    console.log("*** Your response is: ", completion?.data?.choices[0]?.message);
+    console.log("*** Your response is: ", completion?.choices[0]?.message);
 
-    const result = completion?.data?.choices[0]?.message?.content;
+    const result = completion?.choices[0]?.message?.content;
     let splitResult = [];
     let tooLong = false;
 

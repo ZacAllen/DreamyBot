@@ -16,7 +16,7 @@
     "erela.js": "^2.4.0",
     "forever": "^4.0.3",
     "node": "^19.8.1",
-    "openai": "^3.3.0",
+    "openai": "^4.39.0",
     "pretty-ms": "^8.0.0",
     "youtube-api": "^3.0.1",
     "youtube-dl-exec": "^3.0.0",
