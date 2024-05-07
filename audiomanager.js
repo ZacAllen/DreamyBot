@@ -47,10 +47,10 @@ class AudioManager extends EventEmitter {
       })
         .then((output) => {
           //filter privated & deleted videos from retrieved playlist
-          const filteredEntries = output.entries.filter((track) => {
-            return !track.title.includes("Private video") && !track.title.includes("Deleted video");
-          });
-          ytdlPlaylist = { ...output, entries: filteredEntries };
+          const filteredEntries =  output.entries.filter((track => {
+            return !track.title.includes('Private video') && !track.title.includes('Deleted video')
+          } ));
+          ytdlPlaylist = {...output, entries: filteredEntries}
         })
         .catch((err) => console.log(err));
       return ytdlPlaylist;
@@ -321,6 +321,17 @@ class AudioManager extends EventEmitter {
     const audioqueue = queue.reduce((total, item) => {
       var title = item.info ? item.info.title : null;
       total.push({ url: item.url, title: title });
+      return total;
+    }, []);
+    return audioqueue;
+  }
+  diagnostic(channel) {
+    if (!channel) throw new Error(constants.ERRORMESSAGES.REQUIRED_PARAMETER_CHANNEL);
+    if (!globals[channel.id]) throw new Error(constants.ERRORMESSAGES.PLAY_FUNCTION_NOT_CALLED);
+    const queue = globals[channel.id].get(`queue`);
+    const audioqueue = queue.reduce((total, item) => {
+      // var title = item.info ? item.info.title : null;
+      total.push({ ...item });
       return total;
     }, []);
     return audioqueue;

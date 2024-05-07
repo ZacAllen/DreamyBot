@@ -192,7 +192,7 @@ client.on("messageCreate", async (message) => {
           return message.channel.send({
             content: `There is currently nothing playing!`,
           });
-        const queue = audioManager.queue(vc);
+        const queue = audioManager.diagnostic(vc);
         audioManager
           .loop(vc, audioManager?.looptypes?.loop)
           .then(() => message?.channel.send({ content: `Looping current song ${queue[0]?.title || ""}.` }))
@@ -271,6 +271,28 @@ client.on("messageCreate", async (message) => {
       audioManager.clearqueue(vc);
       message.channel.send({
         content: `The queue has successfully been cleared`,
+      });
+      break;
+    case "diag":
+      if (!vc)
+        return message.channel.send({
+          content: `There is no queue!`,
+        });
+      const queue = audioManager.diagnostic(vc);
+      const current = queue[0];
+
+      var msg = "```json\n{";
+      for (var key in current) {
+        if (current.hasOwnProperty(key)) {
+          msg = msg + '\n "' + key + '": "' + JSON.stringify(current[key], null, " ") + '",';
+        }
+      }
+      msg = msg.substring(0, msg.length - 1);
+      msg = msg + "\n}```";
+
+      console.log("Stuff", queue);
+      message.channel.send({
+        content: "Current song data: " + msg,
       });
   }
 });
