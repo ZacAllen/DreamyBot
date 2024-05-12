@@ -192,7 +192,7 @@ client.on("messageCreate", async (message) => {
           return message.channel.send({
             content: `There is currently nothing playing!`,
           });
-        const queue = audioManager.diagnostic(vc);
+        const queue = audioManager.queue(vc);
         audioManager
           .loop(vc, audioManager?.looptypes?.loop)
           .then(() => message?.channel.send({ content: `Looping current song ${queue[0]?.title || ""}.` }))
