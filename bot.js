@@ -3,9 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
 const { AudioManager } = require("discordaudio");
-const { discord, EmbedBuilder } = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 const ytstream = require("yt-stream");
-const youtubedl = require("youtube-dl-exec");
 
 const client = new Client({
   intents: [
