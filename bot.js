@@ -193,15 +193,8 @@ client.on("messageCreate", async (message) => {
             content: `There is currently nothing playing!`,
           });
         const queue = audioManager.queue(vc);
-        audioManager
-          .loop(vc, audioManager?.looptypes?.loop)
-          .then(() => message?.channel.send({ content: `Looping current song ${queue[0]?.title || ""}.` }))
-          .catch((err) => {
-            console.log(err);
-            message.channel.send({
-              content: `There was an error while looping the song!`,
-            });
-          });
+        audioManager.loop(vc, audioManager?.looptypes?.loop);
+        message?.channel.send({ content: `Looping current song ${queue[0]?.title || ""}.` });
       }
       break;
     case "stop":
