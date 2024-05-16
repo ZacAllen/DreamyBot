@@ -14,7 +14,12 @@ module.exports = {
     .setName('image')
     .setDescription('This is REAL art!')
     .addStringOption((option) =>
-      option.setName('message').setDescription('Ask DreamyBot to create anything you can imagine 😲').setRequired(true),
+      option
+        .setName('message')
+        .setDescription(
+          'Ask DreamyBot to create anything you can imagine 😲 (use {landscape} or {portrait} to specify dimensions)',
+        )
+        .setRequired(true),
     ),
 
   async execute(interaction) {
