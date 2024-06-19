@@ -39,6 +39,23 @@ class AudioManager extends EventEmitter {
     const yturl = ytstream.validateVideoURL(stream);
     const playlisturl = ytstream.validatePlaylistURL(stream);
 
+    const isUnavailable = async (track) => {
+      let hasError = false;
+      if (track.title.includes("Private video") && track.title.includes("Deleted video")) {
+        return true;
+      } else {
+        try {
+          await ytstream.getInfo(track.url).catch((err) => {
+            console.log("*** isUnavailable error", err, " - ", track.title);
+            hasError = true;
+          });
+        } catch (err) {
+          hasError = true;
+        }
+      }
+      return hasError;
+    };
+
     const getYtdlPlaylist = async (stream) => {
       let ytdlPlaylist = [];
       await youtubedl(stream, {
@@ -53,13 +70,24 @@ class AudioManager extends EventEmitter {
         preferFreeFormats: true,
         addHeader: ["referer:youtube.com", "user-agent:googlebot"],
       })
-        .then((output) => {
-          //filter privated & deleted videos from retrieved playlist
-          const filteredEntries = output.entries.filter((track) => {
-            // How to deal with unavailable videos (i.e. due to copyright strike?)
-            // See https://www.youtube.com/watch?v=KMICyNq2-hI
-            return !track.title.includes("Private video") && !track.title.includes("Deleted video");
-          });
+        .then(async (output) => {
+          let newArray = []; //create new array for filtered songs
+          // resolve all ytstream song checks (ytdl cannot verify if video is unavailable consistently)
+          await Promise.all(
+            output.entries.map((track) => {
+              return isUnavailable(track);
+            })
+          )
+            .then((result) => {
+              console.log("*** Resulting songs", result.length);
+              if (result) {
+                newArray = output.entries.filter((track, index) => result[index] === false);
+              }
+            })
+            .catch((err) => {
+              console.log("*** PromiseErr", err);
+            });
+          const filteredEntries = newArray;
           ytdlPlaylist = { ...output, entries: filteredEntries };
         })
         .catch((err) => console.log(err));
@@ -519,6 +547,17 @@ class AudioManager extends EventEmitter {
         this.emit(`queue_remove`, stream);
       } else return reject(constants.ERRORMESSAGES.DELETE_QUEUE_SONG_NOT_EXISTS);
     });
+  }
+  diagnostic(channel) {
+    if (!channel) throw new Error(constants.ERRORMESSAGES.REQUIRED_PARAMETER_CHANNEL);
+    if (!globals[channel.id]) throw new Error(constants.ERRORMESSAGES.PLAY_FUNCTION_NOT_CALLED);
+    const queue = globals[channel.id].get(`queue`);
+    const audioqueue = queue.reduce((total, item) => {
+      // var title = item.info ? item.info.title : null;
+      total.push({ ...item });
+      return total;
+    }, []);
+    return audioqueue;
   }
   shuffle(channel) {
     if (!channel) throw new Error(constants.ERRORMESSAGES.REQUIRED_PARAMETER_CHANNEL);

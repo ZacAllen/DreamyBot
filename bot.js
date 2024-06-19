@@ -189,9 +189,25 @@ client.on("messageCreate", async (message) => {
             message.channel.send({ content: `Skipping song **${queue[0]?.title || ""}.**` });
           })
           .catch((err) => {
+            // console.log("*** ARE WE ERRINFG", err);
             message.channel.send({
-              content: `There was an error while skipping the song!`,
+              content: `There was an error while skipping the song! \n**Error:** *${err}*`,
             });
+            // If unavailable video error, retry skip to remove blank from queue
+            if (err.includes("error while getting the YouTube video url")) {
+              audioManager
+                .skip(vc)
+                .then(() => {
+                  message.channel.send({
+                    content: `The next song in queue is unavailable. Skipping song **${queue[1]?.title || ""}.**`,
+                  });
+                })
+                .catch((err) => {
+                  message.channel.send({
+                    content: `There was an error while skipping the song! Error: ${err}`,
+                  });
+                });
+            }
           });
       }
       break;
@@ -275,27 +291,27 @@ client.on("messageCreate", async (message) => {
         content: `The queue has successfully been cleared`,
       });
       break;
-    case "diag":
-      if (!vc)
-        return message.channel.send({
-          content: `There is no queue!`,
-        });
-      const queue = audioManager.diagnostic(vc);
-      const current = queue[0];
+    // case "diag":
+    //   if (!vc)
+    //     return message.channel.send({
+    //       content: `There is no queue!`,
+    //     });
+    //   const queue = audioManager.diagnostic(vc);
+    //   const current = queue[0];
 
-      var msg = "```json\n{";
-      for (var key in current) {
-        if (current.hasOwnProperty(key)) {
-          msg = msg + '\n "' + key + '": "' + JSON.stringify(current[key], null, " ") + '",';
-        }
-      }
-      msg = msg.substring(0, msg.length - 1);
-      msg = msg + "\n}```";
+    //   var msg = "```json\n{";
+    //   for (var key in current) {
+    //     if (current.hasOwnProperty(key)) {
+    //       msg = msg + '\n "' + key + '": "' + JSON.stringify(current[key], null, " ") + '",';
+    //     }
+    //   }
+    //   msg = msg.substring(0, msg.length - 1);
+    //   msg = msg + "\n}```";
 
-      // console.log("Stuff", queue);
-      message.channel.send({
-        content: "Current song data: " + msg,
-      });
+    //   // console.log("Stuff", queue);
+    //   message.channel.send({
+    //     content: "Current song data: " + msg,
+    //   });
   }
 });
 
