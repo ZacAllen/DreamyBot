@@ -189,12 +189,26 @@ client.on("messageCreate", async (message) => {
             message.channel.send({ content: `Skipping song **${queue[0]?.title || ""}.**` });
           })
           .catch((err) => {
-            // console.log("*** ARE WE ERRINFG", err);
+            console.log("*** ARE WE ERRINFG", typeof err, err);
             message.channel.send({
               content: `There was an error while skipping the song! \n**Error:** *${err}*`,
             });
             // If unavailable video error, retry skip to remove blank from queue
-            if (err.includes("error while getting the YouTube video url")) {
+            if (typeof err === "string" && err.includes("error while getting the YouTube video url")) {
+              audioManager
+                .skip(vc)
+                .then(() => {
+                  message.channel.send({
+                    content: `The next song in queue is unavailable. Skipping song **${queue[1]?.title || ""}.**`,
+                  });
+                })
+                .catch((err) => {
+                  message.channel.send({
+                    content: `There was an error while skipping the song! Error: ${err}`,
+                  });
+                });
+              // If failed fetch error, retry skip to remove blank from queue
+            } else if (err.message.includes("aborted")) {
               audioManager
                 .skip(vc)
                 .then(() => {
