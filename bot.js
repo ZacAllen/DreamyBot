@@ -285,6 +285,46 @@ client.on("messageCreate", async (message) => {
         });
       audioManager.volume(vc, Number(args[1]));
       break;
+    case "current":
+      if (!vc)
+        return message.channel.send({
+          content: `There is currently nothing playing!`,
+        });
+      function encodeDuration(millis) {
+        var minutes = Math.floor(millis / 60000);
+        var seconds = ((millis % 60000) / 1000).toFixed(0);
+        return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+      }
+      try {
+        let songData = audioManager.getCurrentSong(vc);
+        songData = {
+          ...songData,
+          ytInfo: {
+            author: songData.ytInfo?.author,
+            uploaded: songData.ytInfo?.uploaded,
+            views: songData.ytInfo?.views,
+            duration: encodeDuration(songData.ytInfo?.duration),
+          },
+        };
+
+        var msg = "```json\n{";
+        for (var key in songData) {
+          if (songData.hasOwnProperty(key)) {
+            msg = msg + '\n "' + key + '": "' + JSON.stringify(songData[key], null, " ") + '",';
+          }
+        }
+        msg = msg.substring(0, msg.length - 1);
+        msg = msg + "\n}```";
+
+        message.channel.send({ content: msg });
+      } catch (err) {
+        console.log("*** Get current song error:", err);
+        message.channel.send({
+          content: `There was an error getting the current song.`,
+        });
+      }
+
+      break;
     case "shuffle":
       if (!vc)
         return message.channel.send({
@@ -305,27 +345,20 @@ client.on("messageCreate", async (message) => {
         content: `The queue has successfully been cleared`,
       });
       break;
-    // case "diag":
-    //   if (!vc)
-    //     return message.channel.send({
-    //       content: `There is no queue!`,
-    //     });
-    //   const queue = audioManager.diagnostic(vc);
-    //   const current = queue[0];
-
-    //   var msg = "```json\n{";
-    //   for (var key in current) {
-    //     if (current.hasOwnProperty(key)) {
-    //       msg = msg + '\n "' + key + '": "' + JSON.stringify(current[key], null, " ") + '",';
-    //     }
-    //   }
-    //   msg = msg.substring(0, msg.length - 1);
-    //   msg = msg + "\n}```";
-
-    //   // console.log("Stuff", queue);
-    //   message.channel.send({
-    //     content: "Current song data: " + msg,
-    //   });
+    case "crunch":
+      if (!vc)
+        return message.channel.send({
+          content: `There is no queue!`,
+        });
+      const queue = audioManager.queue(vc);
+      const uvc2 = message.member.voice.channel || message.guild.members.me.voice.channel;
+      //I don't think this works
+      audioManager.setFilter(uvc2, ["acrusher=samples=250:lfo=1:lforange=200:bits=256"]);
+      const filtys = audioManager.getFilters(uvc2);
+      console.log(filtys);
+      message.channel.send({
+        content: "CRUNCHING " + queue[0].title,
+      });
   }
 });
 

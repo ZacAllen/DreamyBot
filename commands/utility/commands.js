@@ -1,8 +1,8 @@
-const { SlashCommandBuilder } = require('discord.js')
-const pre = process.env.COMMAND_PREFIX
+const { SlashCommandBuilder } = require("discord.js");
+const pre = process.env.COMMAND_PREFIX;
 
 module.exports = {
-  data: new SlashCommandBuilder().setName('commands').setDescription('Display all bot commands'),
+  data: new SlashCommandBuilder().setName("commands").setDescription("Display all bot commands"),
   async execute(interaction) {
     await interaction.reply(`Hey ${interaction.user.username}, here's a list of my abilities:
 
@@ -22,6 +22,8 @@ module.exports = {
 
     **${pre}queue:** Display the queue.
 
+    **${pre}current:** Display current song data.
+
     **${pre}volume [1-10]:** Set bot playback volume.
 
     **${pre}shuffle:** Shuffle tracks in queue.
@@ -31,6 +33,6 @@ module.exports = {
     
     **/chat:** Ask DreamyBot anything (powered by ChatGPT 4 🤓).
     
-    **/image:** Ask DreamyBot to create whatever you can imagine! (powered by Dall-e 3 🤓). Use {landscape} or {portrait} in your prompt to specify dimensions)`)
+    **/image:** Ask DreamyBot to create whatever you can imagine! (powered by Dall-e 3 🤓). Use {landscape} or {portrait} in your prompt to specify dimensions)`);
   },
-}
+};
