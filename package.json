@@ -12,7 +12,7 @@
   "dependencies": {
     "@distube/ytdl-core": "^4.14.3",
     "discord.js": "^14.9.0",
-    "discordaudio": "^3.2.5",
+    "discordaudio": "^3.2.3",
     "dotenv": "^16.0.3",
     "erela.js": "^2.4.0",
     "ffmpeg": "^0.0.4",
@@ -24,7 +24,7 @@
     "youtube-api": "^3.0.1",
     "youtube-dl-exec": "^3.0.7",
     "youtube-search": "^1.1.6",
-    "yt-stream": "^1.7.2",
+    "yt-stream": "^1.7.3",
     "ytdl-core": "^4.11.5",
     "ytdl-core-discord": "^1.3.1"
   },

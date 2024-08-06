@@ -6,15 +6,14 @@ const { AudioManager } = require("discordaudio");
 const { EmbedBuilder } = require("discord.js");
 const ytstream = require("yt-stream");
 
-ytstream.setApiKey(process.env.YT_API_KEY); // Only sets the api key
-ytstream.setPreference("api", "ANDROID"); // Tells the package to use the api and use a web client for requests
+// ytstream.setApiKey(process.env.YT_API_KEY); // Only sets the api key
+// ytstream.setPreference("api", "ANDROID"); // Tells the package to use the api and use a web client for requests
 
 // ytstream.setPreference("scrape"); // Tells the package to use the scrape methods instead of the api, even if an api key has been provided
 
 // ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0";
 
 const agent = new ytstream.YTStreamAgent([], {
-  // localAddress: "127.0.0.1",
   keepAlive: true,
   keepAliveMsecs: 5e3,
 });

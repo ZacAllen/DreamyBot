@@ -1,0 +1,2 @@
+8/6/2024 - Reverting discordaudio package to 3.2.3 solved 403 error that had reemerged, zero idea why. Probably works in conjunction with new user agent?
+May need to REMOVE cookie agent in time, but we shall see. IF error representing, remove cookies and run web request w/ API??
