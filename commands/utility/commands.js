@@ -9,30 +9,23 @@ module.exports = {
     **~ Music Commands ~**
     
     **${pre}play [youtube link]:** Plays a song.
-
     **${pre}pause:** Pause the current track.
-
     **${pre}resume:** Resumes paused track.
-
     **${pre}skip:** Skip the current track.
-
     **${pre}loop:** Loop the current track.
-
     **${pre}stop:** End the bot playback.
-
     **${pre}queue:** Display the queue.
-
     **${pre}current:** Display current song data.
-
     **${pre}volume [1-10]:** Set bot playback volume.
-
     **${pre}shuffle:** Shuffle tracks in queue.
     
     
     **~ Utility ~**
     
     **/chat:** Ask DreamyBot anything (powered by ChatGPT 4 🤓).
-    
-    **/image:** Ask DreamyBot to create whatever you can imagine! (powered by Dall-e 3 🤓). Use {landscape} or {portrait} in your prompt to specify dimensions)`);
+    **/commands:** Display all commands.
+    **/image:** Ask DreamyBot to create whatever you can imagine! (powered by Dall-e 3 🤓). Use {landscape} or {portrait} in your prompt to specify dimensions)
+    **/speak:** Let DreamyBot speak its mind! (Create a text-to-speech audio file)
+    **/speakVC:** Let DreamyBot speak its mind! (Play TTS audio in a voice channel)`);
   },
 };

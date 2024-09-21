@@ -87,6 +87,13 @@ client.on("messageCreate", async (message) => {
 
   let args = message.content.substring(playPrefix.length).split(" ");
 
+  if (args[0] === `play` && !args[1]) {
+    message.channel.send({
+      content: `Please provide a youtube link.`,
+    });
+    return;
+  }
+
   const vc = connections.get(message.guild.members.me.voice.channel?.id);
 
   const includeCommands = [`play`];
@@ -451,3 +458,9 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.TOKEN);
+
+const getAudioManager = () => {
+  return audioManager;
+};
+
+module.exports = getAudioManager;
