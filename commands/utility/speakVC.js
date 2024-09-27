@@ -54,6 +54,7 @@ module.exports = {
 
     const buffer = Buffer.from(await mp3.arrayBuffer());
     await fs.promises.writeFile(speechFile, buffer);
+    //TODO increase volume? Possible?
 
     const voiceChannel = interaction.member.voice.channel;
 
@@ -89,7 +90,7 @@ module.exports = {
       }
     }
 
-    //! For sure player is causing issues, conflicting with audiomanager
+    //! For sure player is causing issues, conflicting with audiomanager?
     player.play(resource);
     connection.subscribe(player);
 
