@@ -12,7 +12,7 @@ const dreamyImage = `https://i.kym-cdn.com/entries/icons/original/000/042/513/dr
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("image")
-    .setDescription("This is REAL art!")
+    .setDescription("This is REAL art! (OpenAI)")
     .addStringOption((option) =>
       option.setName("message").setDescription("Ask DreamyBot to create anything you can imagine 😲").setRequired(true)
     ),
