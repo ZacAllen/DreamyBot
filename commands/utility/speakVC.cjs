@@ -36,7 +36,7 @@ module.exports = {
         )
     ),
   async execute(interaction) {
-    const getAudioManager = require("../../bot");
+    const getAudioManager = require("../../bot.cjs");
     await interaction.reply("Let me think about it...");
 
     const speechFile = path.resolve("./commands/utility/speakfiles-VC/tts.mp3");
