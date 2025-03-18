@@ -19,21 +19,24 @@ class ImageV2Command {
     this.execute = async function (interaction) {
       await interaction.reply("Let me think about it...");
       let message = interaction.options.getString("message");
-      let randomSeed = Math.random().toString(36).slice(2); //prevent duplicate images
+      let randomSeed = Math.random().toString(16).slice(2); //prevent duplicate images
+      console.log("*** Seed", randomSeed);
       const out = await inference
         .textToImage({
           // model: "stabilityai/stable-diffusion-2",
-          model: "black-forest-labs/FLUX.1-dev",
+          // model: "black-forest-labs/FLUX.1-dev",
+          model: "black-forest-labs/FLUX.1-dev-onnx",
           inputs: `${message} ${randomSeed}`,
           parameters: {
             // TODO user controlled parameters; negative prompt unavailable on FLUX
             // negative_prompt: "blurry",
             height: interaction.options.getNumber("height") ?? 1024,
             width: interaction.options.getNumber("width") ?? 1024,
+            // guidance_scale: 2,
           },
         })
         .catch((err) => {
-          interaction.editReply(`Failed to generate image. Error: ${err}`);
+          interaction.editReply(`Failed to generate image during generation. Error: ${err}`);
         });
 
       try {
@@ -52,7 +55,7 @@ class ImageV2Command {
           interaction.editReply("Ah fuck, I have encountered a problem generating your response.");
         });
       } catch (err) {
-        interaction.editReply(`Failed to generate image. Error: ${err}`);
+        interaction.editReply(`Failed to generate image during upload. Error: ${err}`);
       }
     };
   }

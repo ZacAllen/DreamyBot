@@ -1,6 +1,7 @@
 require("dotenv").config(); //to start process from .env file
 const fs = require("fs");
 const path = require("path");
+const cookies = require("./cookies.json");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
 const { AudioManager } = require("discordaudio");
 const { EmbedBuilder } = require("discord.js");
@@ -17,19 +18,25 @@ const loadImageV2 = async () => {
   return command;
 };
 
-// ytstream.setApiKey(process.env.YT_API_KEY); // Only sets the api key
+ytstream.setApiKey(process.env.YT_API_KEY); // Only sets the api key
 // ytstream.setPreference("api", "ANDROID"); // Tells the package to use the api and use a web client for requests
 
-// ytstream.setPreference("scrape"); // Tells the package to use the scrape methods instead of the api, even if an api key has been provided
+ytstream.setPreference("scrape"); // Tells the package to use the scrape methods instead of the api, even if an api key has been provided
 
-// ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0";
+ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0";
 
-const agent = new ytstream.YTStreamAgent([], {
+// const agent = new ytstream.YTStreamAgent([], {
+//   keepAlive: true,
+//   keepAliveMsecs: 5e3,
+// });
+
+const agent = new ytstream.YTStreamAgent(cookies, {
   keepAlive: true,
   keepAliveMsecs: 5e3,
 });
-agent.syncFile(path.join(__dirname, `./cookies.json`)); // This is an absolute path which will always work
-// agent.syncFile(`./cookies.json`) // This is a relative path which will only work if the cookies.json file is inside the root folder of the process
+
+// agent.syncFile(path.join(__dirname, `./cookies.json`)); // This is an absolute path which will always work
+// agent.syncFile(`./cookies.json`); // This is a relative path which will only work if the cookies.json file is inside the root folder of the process
 
 ytstream.setGlobalAgent(agent);
 
@@ -190,9 +197,9 @@ client.on("messageCreate", async (message) => {
             });
         })
         .catch((err) => {
-          console.log(err);
+          console.log("Play error: ", err);
           message.channel.send({
-            content: `There was an error while trying to connect to the voice channel!`,
+            content: `There was an error while trying to connect to the voice channel! Error msg: ${err}`,
           });
         });
       break;
