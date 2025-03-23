@@ -19,20 +19,16 @@ const loadImageV2 = async () => {
 };
 
 ytstream.setApiKey(process.env.YT_API_KEY); // Only sets the api key
-// ytstream.setPreference("api", "ANDROID"); // Tells the package to use the api and use a web client for requests
+ytstream.setPreference("api", "ANDROID"); // Tells the package to use the api and use a web client for requests
 
-ytstream.setPreference("scrape"); // Tells the package to use the scrape methods instead of the api, even if an api key has been provided
+// ytstream.setPreference("scrape"); // Tells the package to use the scrape methods instead of the api, even if an api key has been provided
 
 ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0";
-
-// const agent = new ytstream.YTStreamAgent([], {
-//   keepAlive: true,
-//   keepAliveMsecs: 5e3,
-// });
 
 const agent = new ytstream.YTStreamAgent(cookies, {
   keepAlive: true,
   keepAliveMsecs: 5e3,
+  // localAddress: "100.90.246.60",
 });
 
 // agent.syncFile(path.join(__dirname, `./cookies.json`)); // This is an absolute path which will always work
@@ -442,7 +438,7 @@ client.on("messageCreate", async (message) => {
       /*
       Empty character unicode 
       */
-      content: `[⠀](${mess.replace(twitterLink, "https://vxtwitter.com")})`,
+      content: `[⠀](${mess.replace(twitterLink, "https://fxtwitter.com")})`,
     });
   }
 });

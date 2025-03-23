@@ -111,6 +111,7 @@ dist
 
 # testing
 /coverage
+/commands/utility/imageGen
 
 # production
 /build

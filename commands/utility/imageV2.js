@@ -23,9 +23,11 @@ class ImageV2Command {
       console.log("*** Seed", randomSeed);
       const out = await inference
         .textToImage({
+          // accessToken: HF_TOKEN,
+          model: "black-forest-labs/FLUX.1-schnell",
           // model: "stabilityai/stable-diffusion-2",
           // model: "black-forest-labs/FLUX.1-dev",
-          model: "black-forest-labs/FLUX.1-dev-onnx",
+          // model: "black-forest-labs/FLUX.1-dev-onnx",
           inputs: `${message} ${randomSeed}`,
           parameters: {
             // TODO user controlled parameters; negative prompt unavailable on FLUX
@@ -40,6 +42,7 @@ class ImageV2Command {
         });
 
       try {
+        console.log("*** OUT?", out);
         const buffer = await out.arrayBuffer();
         const fileExt = "jpg";
         const fileName = `${Date.now().toString()}.${fileExt}`;
