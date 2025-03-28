@@ -23,7 +23,9 @@ ytstream.setPreference("api", "ANDROID"); // Tells the package to use the api an
 
 // ytstream.setPreference("scrape"); // Tells the package to use the scrape methods instead of the api, even if an api key has been provided
 
-ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0";
+// ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0";
+ytstream.userAgent =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36";
 
 const agent = new ytstream.YTStreamAgent(cookies, {
   keepAlive: true,
@@ -32,7 +34,7 @@ const agent = new ytstream.YTStreamAgent(cookies, {
 });
 
 // agent.syncFile(path.join(__dirname, `./cookies.json`)); // This is an absolute path which will always work
-// agent.syncFile(`./cookies.json`); // This is a relative path which will only work if the cookies.json file is inside the root folder of the process
+agent.syncFile(`./cookies.json`); // This is a relative path which will only work if the cookies.json file is inside the root folder of the process
 
 ytstream.setGlobalAgent(agent);
 
