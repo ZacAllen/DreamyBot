@@ -22,9 +22,10 @@ module.exports = {
     
     **~ Utility ~**
     
-    **/chat:** Ask DreamyBot anything (powered by ChatGPT 4 🤓).
+    **/chat:** Ask DreamyBot anything (powered by ChatGPT 4o 🤓).
     **/commands:** Display all commands.
     **/image:** Ask DreamyBot to create whatever you can imagine! (powered by Dall-e 3 🤓). Use {landscape} or {portrait} in your prompt to specify dimensions)
+    **/image-v2:** Ask DreamyBot to create whatever you can imagine! (powered by Stable Diffusion FLUX). Use {width} or {height} modes to specify dimensions)
     **/speak:** Let DreamyBot speak its mind! (Create a text-to-speech audio file)
     **/speakVC:** Let DreamyBot speak its mind! (Play TTS audio in a voice channel)`);
   },
