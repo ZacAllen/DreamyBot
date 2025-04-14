@@ -6,6 +6,9 @@ const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
 const { AudioManager } = require("discordaudio");
 const { EmbedBuilder } = require("discord.js");
 const ytstream = require("yt-stream");
+const wiki = require("wikipedia");
+
+// Load imageV2 module, i.e. non-commonjs
 const loadImageV2 = async () => {
   let command;
   await import("./commands/utility/imageV2.js")
@@ -21,17 +24,20 @@ const loadImageV2 = async () => {
 ytstream.setApiKey(process.env.YT_API_KEY); // Only sets the api key
 ytstream.setPreference("api", "ANDROID"); // Tells the package to use the api and use a web client for requests
 
-// ytstream.setPreference("scrape"); // Tells the package to use the scrape methods instead of the api, even if an api key has been provided
+// ytstream.setPreference("scrape", "ANDROID"); // Tells the package to use the scrape methods instead of the api, even if an api key has been provided
 
-// ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0";
-ytstream.userAgent =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36";
+ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0";
+// ytstream.userAgent =
+//   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36";
 
 const agent = new ytstream.YTStreamAgent(cookies, {
   keepAlive: true,
   keepAliveMsecs: 5e3,
-  // localAddress: "100.90.246.60",
+  // localAddress: "2600:1700:37b0:c60::44",
+  // localAddress: "127.0.0.1",
 });
+
+// ! Try playing sub-1minute video WITHOUT cookies at all? See what happens
 
 // agent.syncFile(path.join(__dirname, `./cookies.json`)); // This is an absolute path which will always work
 agent.syncFile(`./cookies.json`); // This is a relative path which will only work if the cookies.json file is inside the root folder of the process
@@ -100,309 +106,313 @@ const connections = new Map();
 let audioManager = new AudioManager();
 
 const playPrefix = process.env.COMMAND_PREFIX;
+const wikiPrefix = process.env.WIKI_PREFIX;
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot || message.channel.type === `DM`) return;
 
-  if (!message.content.startsWith(playPrefix)) return;
+  // if (!message.content.startsWith(playPrefix) || !message.content.startsWith(wikiPrefix)) return;
 
-  let args = message.content.substring(playPrefix.length).split(" ");
+  // TODO Extract these conditions into separate methods, this file is getting annoyingly huge!
+  if (message.content.startsWith(playPrefix)) {
+    let args = message.content.substring(playPrefix.length).split(" ");
 
-  if (args[0] === `play` && !args[1]) {
-    message.channel.send({
-      content: `Please provide a youtube link.`,
-    });
-    return;
-  }
-
-  const vc = connections.get(message.guild.members.me.voice.channel?.id);
-
-  const includeCommands = [`play`];
-
-  let playError = false;
-
-  // Only fetch title for commands that need it!
-  let videoTitle =
-    includeCommands.includes(args[0]) && !args[1].includes("/playlist")
-      ? await ytstream
-          .getInfo(args[1])
-          .then((info) => {
-            return info.title;
-          })
-          .catch((err) => {
-            if (args[1]) console.log("Error playing YT link!", args[1], err);
-            playError = true;
-            message.channel.send({
-              content: `${err} - Please provide a valid video link.`,
-            });
-            return null;
-          })
-      : null;
-  if (includeCommands.includes(args[0]) && args[1].includes("/playlist")) {
-    videoTitle = await ytstream
-      .getPlaylist(args[1])
-      .then((info) => {
-        // console.log("Playlist count", info.videos.length);
-        return info.title;
-      })
-      .catch((err) => {
-        playError = true;
-        message.channel.send({
-          content: `${err} - Please provide a valid playlist link.`,
-        });
-        return null;
+    if (args[0] === `play` && !args[1]) {
+      message.channel.send({
+        content: `Please provide a youtube link.`,
       });
-  }
+      return;
+    }
 
-  switch (args[0].toLowerCase()) {
-    case "play":
-      if (!message.member.voice.channel && !message.guild.members.me.voice.channel)
-        return message.channel.send({
-          content: `Please join a voice channel in order to play a song!`,
-        });
-      if (!args[1]) return message.channel.send({ content: `Please provide a song` });
-      const uvc = message.member.voice.channel || message.guild.members.me.voice.channel;
+    const vc = connections.get(message.guild.members.me.voice.channel?.id);
 
-      if (!audioManager) {
-        audioManager = new AudioManager();
-      }
-      let playShuffle = false;
-      if (args[2] && args[2] === "-shuffle") {
-        playShuffle = true;
-      }
+    const includeCommands = [`play`];
 
-      audioManager
-        .play(
-          uvc,
-          args[1],
-          {
-            quality: "high",
-            audiotype: "arbitrary",
-            volume: 10,
-          },
-          playShuffle
-        )
-        .then((queue) => {
-          if (playError) return;
-          connections.set(uvc.id, uvc);
-          if (queue === false)
-            message.channel.send({
-              content: `Now playing  **${videoTitle ? videoTitle : args[1]}**`,
-            });
-          else
-            message.channel.send({
-              content: `${videoTitle ? videoTitle : "Your song"} has been added to the queue!`,
-            });
+    let playError = false;
+
+    // Only fetch title for commands that need it!
+    let videoTitle =
+      includeCommands.includes(args[0]) && !args[1].includes("/playlist")
+        ? await ytstream
+            .getInfo(args[1])
+            .then((info) => {
+              return info.title;
+            })
+            .catch((err) => {
+              if (args[1]) console.log("Error playing YT link!", args[1], err);
+              playError = true;
+              message.channel.send({
+                content: `${err} - Please provide a valid video link.`,
+              });
+              return null;
+            })
+        : null;
+    if (includeCommands.includes(args[0]) && args[1].includes("/playlist")) {
+      videoTitle = await ytstream
+        .getPlaylist(args[1])
+        .then((info) => {
+          // console.log("Playlist count", info.videos.length);
+          return info.title;
         })
         .catch((err) => {
-          console.log("Play error: ", err);
+          playError = true;
           message.channel.send({
-            content: `There was an error while trying to connect to the voice channel! Error msg: ${err}`,
+            content: `${err} - Please provide a valid playlist link.`,
           });
+          return null;
         });
-      break;
-    case "pause":
-      if (!vc)
-        return message.channel.send({
-          content: `There is currently nothing playing!`,
-        });
-      audioManager.pause(vc);
-      message.channel.send({ content: `Player paused.` });
-      break;
-    case "resume":
-      {
-        if (!vc)
+    }
+
+    switch (args[0].toLowerCase()) {
+      case "play":
+        if (!message.member.voice.channel && !message.guild.members.me.voice.channel)
           return message.channel.send({
-            content: `There is currently nothing playing!`,
+            content: `Please join a voice channel in order to play a song!`,
           });
-        const queue = audioManager.queue(vc);
-        audioManager.resume(vc);
-        message.channel.send({ content: `Resuming playback of **${queue[0]?.title}.**` });
-      }
-      break;
-    case "skip":
-      {
-        if (!vc)
-          return message.channel.send({
-            content: `There is currently nothing playing!`,
-          });
-        const queue = audioManager.queue(vc);
+        if (!args[1]) return message.channel.send({ content: `Please provide a song` });
+        const uvc = message.member.voice.channel || message.guild.members.me.voice.channel;
+
+        if (!audioManager) {
+          audioManager = new AudioManager();
+        }
+        let playShuffle = false;
+        if (args[2] && args[2] === "-shuffle") {
+          playShuffle = true;
+        }
+
         audioManager
-          .skip(vc)
-          .then(() => {
-            message.channel.send({ content: `Skipping song **${queue[0]?.title || ""}.**` });
+          .play(
+            uvc,
+            args[1],
+            {
+              quality: "high",
+              audiotype: "arbitrary",
+              volume: 10,
+            },
+            playShuffle
+          )
+          .then((queue) => {
+            if (playError) return;
+            connections.set(uvc.id, uvc);
+            if (queue === false)
+              message.channel.send({
+                content: `Now playing  **${videoTitle ? videoTitle : args[1]}**`,
+              });
+            else
+              message.channel.send({
+                content: `${videoTitle ? videoTitle : "Your song"} has been added to the queue!`,
+              });
           })
           .catch((err) => {
-            console.log("*** ARE WE ERRINFG", typeof err, err);
+            console.log("Play error: ", err);
             message.channel.send({
-              content: `There was an error while skipping the song! \n**Error:** *${err}*`,
+              content: `There was an error while trying to connect to the voice channel! Error msg: ${err}`,
             });
-            // If unavailable video error, retry skip to remove blank from queue
-            if (typeof err === "string" && err.includes("error while getting the YouTube video url")) {
-              audioManager
-                .skip(vc)
-                .then(() => {
-                  message.channel.send({
-                    content: `The next song in queue is unavailable. Skipping song **${queue[1]?.title || ""}.**`,
+          });
+        break;
+      case "pause":
+        if (!vc)
+          return message.channel.send({
+            content: `There is currently nothing playing!`,
+          });
+        audioManager.pause(vc);
+        message.channel.send({ content: `Player paused.` });
+        break;
+      case "resume":
+        {
+          if (!vc)
+            return message.channel.send({
+              content: `There is currently nothing playing!`,
+            });
+          const queue = audioManager.queue(vc);
+          audioManager.resume(vc);
+          message.channel.send({ content: `Resuming playback of **${queue[0]?.title}.**` });
+        }
+        break;
+      case "skip":
+        {
+          if (!vc)
+            return message.channel.send({
+              content: `There is currently nothing playing!`,
+            });
+          const queue = audioManager.queue(vc);
+          audioManager
+            .skip(vc)
+            .then(() => {
+              message.channel.send({ content: `Skipping song **${queue[0]?.title || ""}.**` });
+            })
+            .catch((err) => {
+              console.log("*** ARE WE ERRINFG", typeof err, err);
+              message.channel.send({
+                content: `There was an error while skipping the song! \n**Error:** *${err}*`,
+              });
+              // If unavailable video error, retry skip to remove blank from queue
+              if (typeof err === "string" && err.includes("error while getting the YouTube video url")) {
+                audioManager
+                  .skip(vc)
+                  .then(() => {
+                    message.channel.send({
+                      content: `The next song in queue is unavailable. Skipping song **${queue[1]?.title || ""}.**`,
+                    });
+                  })
+                  .catch((err) => {
+                    message.channel.send({
+                      content: `There was an error while skipping the song! Error: ${err}`,
+                    });
                   });
-                })
-                .catch((err) => {
-                  message.channel.send({
-                    content: `There was an error while skipping the song! Error: ${err}`,
+                // If failed fetch error, retry skip to remove blank from queue
+              } else if (err.message.includes("aborted")) {
+                audioManager
+                  .skip(vc)
+                  .then(() => {
+                    message.channel.send({
+                      content: `The next song in queue is unavailable. Skipping song **${queue[1]?.title || ""}.**`,
+                    });
+                  })
+                  .catch((err) => {
+                    message.channel.send({
+                      content: `There was an error while skipping the song! Error: ${err}`,
+                    });
                   });
-                });
-              // If failed fetch error, retry skip to remove blank from queue
-            } else if (err.message.includes("aborted")) {
-              audioManager
-                .skip(vc)
-                .then(() => {
-                  message.channel.send({
-                    content: `The next song in queue is unavailable. Skipping song **${queue[1]?.title || ""}.**`,
-                  });
-                })
-                .catch((err) => {
-                  message.channel.send({
-                    content: `There was an error while skipping the song! Error: ${err}`,
-                  });
-                });
+              }
+            });
+        }
+        break;
+      case "loop":
+        {
+          if (!vc)
+            return message.channel.send({
+              content: `There is currently nothing playing!`,
+            });
+          const queue = audioManager.queue(vc);
+          audioManager.loop(vc, audioManager?.looptypes?.loop);
+          message?.channel.send({ content: `Looping current song ${queue[0]?.title || ""}.` });
+        }
+        break;
+      case "stop":
+        if (!vc)
+          return message.channel.send({
+            content: `There is currently nothing playing!`,
+          });
+        audioManager.stop(vc);
+        message.channel.send({ content: `Playback stopped!` });
+        break;
+      case "queue":
+        {
+          if (!vc)
+            return message.channel.send({
+              content: `There is currently nothing playing!`,
+            });
+          const queue = audioManager.queue(vc).reduce((text, song, index) => {
+            if (index > 50) {
+              return text;
+            } else if (index > 49) {
+              text += `\n...`;
+              return text;
             }
-          });
-      }
-      break;
-    case "loop":
-      {
+            if (song.title) text += `\n**[${index + 1}]** ${song.title}`;
+            else text += `\n**[${index + 1}]** ${song.url}`;
+            return text;
+          }, `__**QUEUE**__`);
+          const queueEmbed = new EmbedBuilder()
+            .setColor(`Blurple`)
+            .setTitle(`Queue: [${audioManager.queue(vc).length}] Songs`)
+            .setDescription(queue);
+          if (queueEmbed) {
+            message.channel.send({ embeds: [queueEmbed] });
+          } else {
+            message.channel.send({ content: `There was an error while reading the queue!` });
+          }
+        }
+
+        break;
+      case "volume":
         if (!vc)
           return message.channel.send({
             content: `There is currently nothing playing!`,
           });
-        const queue = audioManager.queue(vc);
-        audioManager.loop(vc, audioManager?.looptypes?.loop);
-        message?.channel.send({ content: `Looping current song ${queue[0]?.title || ""}.` });
-      }
-      break;
-    case "stop":
-      if (!vc)
-        return message.channel.send({
-          content: `There is currently nothing playing!`,
-        });
-      audioManager.stop(vc);
-      message.channel.send({ content: `Playback stopped!` });
-      break;
-    case "queue":
-      {
+        if (!args[1]) return message.channel.send({ content: `Please provide the volume` });
+        if (Number(args[1]) < 1 || Number(args[1]) > 10)
+          return message.channel.send({
+            content: `Please provide a volume between 1-10`,
+          });
+        audioManager.volume(vc, Number(args[1]));
+        break;
+      case "current":
         if (!vc)
           return message.channel.send({
             content: `There is currently nothing playing!`,
           });
-        const queue = audioManager.queue(vc).reduce((text, song, index) => {
-          if (index > 50) {
-            return text;
-          } else if (index > 49) {
-            text += `\n...`;
-            return text;
-          }
-          if (song.title) text += `\n**[${index + 1}]** ${song.title}`;
-          else text += `\n**[${index + 1}]** ${song.url}`;
-          return text;
-        }, `__**QUEUE**__`);
-        const queueEmbed = new EmbedBuilder()
-          .setColor(`Blurple`)
-          .setTitle(`Queue: [${audioManager.queue(vc).length}] Songs`)
-          .setDescription(queue);
-        if (queueEmbed) {
-          message.channel.send({ embeds: [queueEmbed] });
-        } else {
-          message.channel.send({ content: `There was an error while reading the queue!` });
+        function encodeDuration(millis) {
+          var minutes = Math.floor(millis / 60000);
+          var seconds = ((millis % 60000) / 1000).toFixed(0);
+          return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
         }
-      }
+        try {
+          let songData = audioManager.getCurrentSong(vc);
+          songData = {
+            ...songData,
+            ytInfo: {
+              author: songData.ytInfo?.author,
+              uploaded: songData.ytInfo?.uploaded,
+              views: songData.ytInfo?.views,
+              duration: encodeDuration(songData.ytInfo?.duration),
+            },
+          };
 
-      break;
-    case "volume":
-      if (!vc)
-        return message.channel.send({
-          content: `There is currently nothing playing!`,
-        });
-      if (!args[1]) return message.channel.send({ content: `Please provide the volume` });
-      if (Number(args[1]) < 1 || Number(args[1]) > 10)
-        return message.channel.send({
-          content: `Please provide a volume between 1-10`,
-        });
-      audioManager.volume(vc, Number(args[1]));
-      break;
-    case "current":
-      if (!vc)
-        return message.channel.send({
-          content: `There is currently nothing playing!`,
-        });
-      function encodeDuration(millis) {
-        var minutes = Math.floor(millis / 60000);
-        var seconds = ((millis % 60000) / 1000).toFixed(0);
-        return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
-      }
-      try {
-        let songData = audioManager.getCurrentSong(vc);
-        songData = {
-          ...songData,
-          ytInfo: {
-            author: songData.ytInfo?.author,
-            uploaded: songData.ytInfo?.uploaded,
-            views: songData.ytInfo?.views,
-            duration: encodeDuration(songData.ytInfo?.duration),
-          },
-        };
-
-        var msg = "```json\n{";
-        for (var key in songData) {
-          if (songData.hasOwnProperty(key)) {
-            msg = msg + '\n "' + key + '": "' + JSON.stringify(songData[key], null, " ") + '",';
+          var msg = "```json\n{";
+          for (var key in songData) {
+            if (songData.hasOwnProperty(key)) {
+              msg = msg + '\n "' + key + '": "' + JSON.stringify(songData[key], null, " ") + '",';
+            }
           }
-        }
-        msg = msg.substring(0, msg.length - 1);
-        msg = msg + "\n}```";
+          msg = msg.substring(0, msg.length - 1);
+          msg = msg + "\n}```";
 
-        message.channel.send({ content: msg });
-      } catch (err) {
-        console.log("*** Get current song error:", err);
+          message.channel.send({ content: msg });
+        } catch (err) {
+          console.log("*** Get current song error:", err);
+          message.channel.send({
+            content: `There was an error getting the current song.`,
+          });
+        }
+
+        break;
+      case "shuffle":
+        if (!vc)
+          return message.channel.send({
+            content: `There is currently nothing playing!`,
+          });
+        audioManager.shuffle(vc);
         message.channel.send({
-          content: `There was an error getting the current song.`,
+          content: `The queue has successfully been shufffled`,
         });
-      }
-
-      break;
-    case "shuffle":
-      if (!vc)
-        return message.channel.send({
-          content: `There is currently nothing playing!`,
+        break;
+      case "clear":
+        if (!vc)
+          return message.channel.send({
+            content: `There is no queue!`,
+          });
+        audioManager.clearqueue(vc);
+        message.channel.send({
+          content: `The queue has successfully been cleared`,
         });
-      audioManager.shuffle(vc);
-      message.channel.send({
-        content: `The queue has successfully been shufffled`,
-      });
-      break;
-    case "clear":
-      if (!vc)
-        return message.channel.send({
-          content: `There is no queue!`,
-        });
-      audioManager.clearqueue(vc);
-      message.channel.send({
-        content: `The queue has successfully been cleared`,
-      });
-      break;
-    // case "crunch":
-    //   if (!vc)
-    //     return message.channel.send({
-    //       content: `There is no queue!`,
-    //     });
-    //   const queue = audioManager.queue(vc);
-    //   const uvc2 = message.member.voice.channel || message.guild.members.me.voice.channel;
-    //   //I don't think this works
-    //   audioManager.setFilter(uvc2, ["acrusher=samples=250:lfo=1:lforange=200:bits=256"]);
-    //   const filtys = audioManager.getFilters(uvc2);
-    //   console.log(filtys);
-    //   message.channel.send({
-    //     content: "CRUNCHING " + queue[0].title,
-    //   });
+        break;
+      // case "crunch":
+      //   if (!vc)
+      //     return message.channel.send({
+      //       content: `There is no queue!`,
+      //     });
+      //   const queue = audioManager.queue(vc);
+      //   const uvc2 = message.member.voice.channel || message.guild.members.me.voice.channel;
+      //   //I don't think this works
+      //   audioManager.setFilter(uvc2, ["acrusher=samples=250:lfo=1:lforange=200:bits=256"]);
+      //   const filtys = audioManager.getFilters(uvc2);
+      //   console.log(filtys);
+      //   message.channel.send({
+      //     content: "CRUNCHING " + queue[0].title,
+      //   });
+    }
   }
 });
 
@@ -425,6 +435,30 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 });
 
 // --------------------------------------------------MESSAGE EMBED FUNCS--------------------------------------------------------------------
+
+/**
+ * Create wikipedia link from wiki prefix message
+ * @params { object } message
+ */
+client.on("messageCreate", async (message) => {
+  const mess = message.content;
+  if (message.author.bot === true) return null;
+  if (mess.startsWith(wikiPrefix)) {
+    let args = message.content.substring(wikiPrefix.length);
+
+    try {
+      const page = await wiki.page(args);
+      message.reply({
+        content: `${page.fullurl}`,
+      });
+    } catch (error) {
+      console.log(error);
+      message.reply({
+        content: `${error}`,
+      });
+    }
+  }
+});
 
 /**
  * Create vxtwitter link from non-embedable native links. Replies to user with vx link.

@@ -18,7 +18,9 @@ module.exports = {
     **${pre}current:** Display current song data.
     **${pre}volume [1-10]:** Set bot playback volume.
     **${pre}shuffle:** Shuffle tracks in queue.
-    
+
+    **~ Misc. Chat Commands ~**
+    **~!wiki:** Search for a wikipedia article.
     
     **~ Utility ~**
     
