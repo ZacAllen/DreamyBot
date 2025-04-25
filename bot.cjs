@@ -231,6 +231,7 @@ client.on("messageCreate", async (message) => {
           noCheckCertificates: true,
           noWarnings: true,
           preferFreeFormats: true,
+          cookiesFromBrowser: "firefox",
           addHeader: ["referer:youtube.com", "user-agent:googlebot"],
         })
           .then(async (output) => {
@@ -323,13 +324,15 @@ client.on("messageCreate", async (message) => {
             const resource = createAudioResource(audioFile);
 
             // Add listener for when current song ends
-            player.on("stateChange", (oldState, newState) => {
+            player.on("stateChange", async (oldState, newState) => {
               if (newState.status === "idle" && guildQueue.length > 0) {
                 // Play next song in queue
                 const nextSong = guildQueue.shift();
-                const nextTitle = ytstream.getInfo(nextSong).then((info) => {
-                  return info.title;
-                });
+                let nextTitle;
+
+                const info = await ytstream.getInfo(nextSong);
+                nextTitle = info.title;
+
                 const fileSafeTitle = sanitizeTitle(nextTitle);
                 youtubedl(nextSong, {
                   extractAudio: true,
