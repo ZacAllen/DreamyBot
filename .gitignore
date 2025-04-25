@@ -119,6 +119,9 @@ dist
 # production
 /build
 
+# mp3 files
+/yt-dl-output 
+
 # misc
 .DS_Store
 .env.local
