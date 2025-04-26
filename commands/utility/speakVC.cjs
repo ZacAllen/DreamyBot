@@ -5,8 +5,6 @@ const openaikey = process.env.GPT_API_KEY;
 
 const fs = require("fs");
 const path = require("path");
-// const { AudioManager } = require("discordaudio/src/classes/audiomanager");
-const { AudioManager } = require("discordaudio");
 
 const openai = new OpenAI({
   apiKey: openaikey,
@@ -36,7 +34,6 @@ module.exports = {
         )
     ),
   async execute(interaction) {
-    const getAudioManager = require("../../bot.cjs");
     await interaction.reply("Let me think about it...");
 
     const speechFile = path.resolve("./commands/utility/speakfiles-VC/tts.mp3");
@@ -69,7 +66,6 @@ module.exports = {
     });
 
     let isPaused = false;
-    let currentPlayer = getAudioManager();
     let vc = interaction.member.voice.channel;
     let storedSong;
 

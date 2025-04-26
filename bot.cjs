@@ -1,15 +1,14 @@
 require("dotenv").config(); //to start process from .env file
 const fs = require("fs");
 const youtubedl = require("youtube-dl-exec");
-// const { Player } = require("discordaudio");
 const { createAudioPlayer, NoSubscriberBehavior, createAudioResource, joinVoiceChannel } = require("@discordjs/voice");
 const path = require("path");
 const cookies = require("./cookies.json");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
-const { AudioManager } = require("discordaudio");
 const { EmbedBuilder } = require("discord.js");
 const ytstream = require("yt-stream");
 const wiki = require("wikipedia");
+const helpers = require("./helpers/helpers.cjs");
 
 // Load imageV2 module, i.e. non-commonjs
 const loadImageV2 = async () => {
@@ -95,32 +94,53 @@ for (const file of eventFiles) {
   }
 }
 
-// Clean titles with invalid FileSystem characters like ? or /.
-const sanitizeTitle = (title) => {
-  // Replace characters that are invalid in Windows filenames with '-'
-  return title.replace(/[<>:"/\\|?*\x00-\x1F]/g, "-");
-};
+const initializePlayerListener = (player, guildQueue, message) => {
+  return player.on("stateChange", async (oldState, newState) => {
+    if (newState.status === "idle" && guildQueue.length > 0) {
+      // Play next song in queue
+      const nextSong = guildQueue.shift()?.url;
+      let nextTitle;
 
-const isUnavailable = async (track) => {
-  let hasError = false;
-  if (track.title.includes("Private video") && track.title.includes("Deleted video")) {
-    return true;
-  } else {
-    try {
-      await ytstream.getInfo(track.url).catch((err) => {
-        console.log("*** isUnavailable error", err, " - ", track.title);
-        hasError = true;
-      });
-    } catch (err) {
-      hasError = true;
+      const info = await ytstream.getInfo(nextSong);
+      nextTitle = info.title;
+
+      const fileSafeTitle = helpers.sanitizeTitle(nextTitle);
+      youtubedl(nextSong, {
+        extractAudio: true,
+        audioFormat: "mp3",
+        output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`,
+        noCheckCertificates: true,
+        noWarnings: true,
+      })
+        .then((output) => {
+          const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
+          const resource = createAudioResource(audioFile);
+          player.play(resource);
+
+          // Update current song in the map
+          if (!global.currentSongMap) {
+            global.currentSongMap = new Map();
+          }
+          global.currentSongMap.set(message.guild.id, {
+            url: nextSong,
+            title: nextTitle,
+          });
+
+          message.channel.send({ content: `Now playing: ***${nextTitle}***` });
+        })
+        .catch((err) => {
+          message.channel.send({ content: `Error playing next song: ${err}` });
+        });
+    } else if (newState.status === "idle") {
+      // No more songs in queue, clear current song
+      if (global.currentSongMap) {
+        global.currentSongMap.delete(message.guild.id);
+      }
     }
-  }
-  return hasError;
+  });
 };
 
 // --------------------------------------------------MUSIC COMMANDS--------------------------------------------------------------------
-
-let audioManager = new AudioManager();
 
 const playPrefix = process.env.COMMAND_PREFIX;
 const wikiPrefix = process.env.WIKI_PREFIX;
@@ -208,6 +228,11 @@ client.on("messageCreate", async (message) => {
       global.songQueue = new Map();
     }
 
+    // Initialize currentSongMap if it doesn't exist
+    if (!global.currentSongMap) {
+      global.currentSongMap = new Map();
+    }
+
     // Get or create queue for this guild
     let guildQueue = global.songQueue.get(guildId);
     if (!guildQueue) {
@@ -215,350 +240,46 @@ client.on("messageCreate", async (message) => {
       global.songQueue.set(guildId, guildQueue);
     }
 
+    // Add listener for when current song ends
+    initializePlayerListener(player, guildQueue, message);
+
     switch (args[0].toLowerCase()) {
       case "playlist":
-        if (!args[1] || !args[1].includes("/playlist"))
-          return message.channel.send({ content: `Please provide a playlist link` });
-
-        let ytdlPlaylist = [];
-        await youtubedl(args[1], {
-          dumpSingleJson: true,
-          yesPlaylist: true,
-          flatPlaylist: true,
-          // playlistRandom: playShuffle ? true : new Boolean(false), // why need cast?
-          skipUnavailableFragments: true,
-          forceIpv6: true,
-          noCheckCertificates: true,
-          noWarnings: true,
-          preferFreeFormats: true,
-          cookiesFromBrowser: "firefox",
-          addHeader: ["referer:youtube.com", "user-agent:googlebot"],
-        })
-          .then(async (output) => {
-            let newArray = []; //create new array for filtered songs
-            // resolve all ytstream song checks (ytdl cannot verify if video is unavailable consistently)
-            await Promise.all(
-              output.entries.map((track) => {
-                return isUnavailable(track);
-              })
-            )
-              .then((result) => {
-                if (result) {
-                  newArray = output.entries.filter((track, index) => result[index] === false);
-                }
-              })
-              .catch((err) => {
-                console.log("*** PromiseErr", err);
-              });
-            ytdlPlaylist = newArray;
-          })
-          .catch((err) => console.log(err));
-
-        // console.log("***YTDL PL", ytdlPlaylist);
-        if (ytdlPlaylist.length === 0) {
-          return message.channel.send({ content: `No valid songs found in playlist` });
-        }
-
-        const firstSong = ytdlPlaylist[0];
-        const fileSafePLTitle = sanitizeTitle(firstSong.title);
-
-        // Download and play first song
-        await youtubedl(firstSong.url, {
-          extractAudio: true,
-          audioFormat: "mp3",
-          output: `./yt-dl-output/${fileSafePLTitle}.%(ext)s`,
-          noCheckCertificates: true,
-          noWarnings: true,
-        })
-          .then((output) => {
-            const audioFile = `./yt-dl-output/${fileSafePLTitle}.mp3`;
-            const resource = createAudioResource(audioFile);
-
-            // If already playing, add all songs to queue
-            if (player.state.status === "playing") {
-              ytdlPlaylist.forEach((song) => guildQueue.push(song.url));
-              message.channel.send({ content: `Added ${ytdlPlaylist.length} songs to queue` });
-              return;
-            }
-
-            // Play first song and add rest to queue
-            player.play(resource);
-            connection.subscribe(player);
-            message.channel.send({ content: `Now playing: ***${firstSong.title}***` });
-
-            // Add remaining songs to queue
-            for (let i = 1; i < ytdlPlaylist.length; i++) {
-              guildQueue.push(ytdlPlaylist[i].url);
-            }
-
-            if (ytdlPlaylist.length > 1) {
-              message.channel.send({ content: `Added ${ytdlPlaylist.length - 1} more songs to queue` });
-            }
-          })
-          .catch((err) => {
-            message.channel.send({ content: `Error playing playlist: ${err}` });
-          });
+        helpers.handlePlaylist(args, message, player, connection, guildQueue);
         break;
       case "play":
-        if (!args[1]) return message.channel.send({ content: `Please provide a song` });
-        const fileSafeTitle = sanitizeTitle(videoTitle);
-        // Download video as audio file
-        await youtubedl(args[1], {
-          extractAudio: true,
-          audioFormat: "mp3",
-          output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`, // Saves to root directory with video title as filename
-          noCheckCertificates: true,
-          noWarnings: true,
-        })
-          .then((output) => {
-            // If player is already playing, add to queue instead
-            if (player.state.status === "playing") {
-              guildQueue.push(args[1]);
-              message.channel.send({ content: `Added ***${videoTitle}*** to queue. Position: ${guildQueue.length}` });
-              return;
-            } else {
-              message.channel.send({ content: `Now playing: ***${videoTitle}***` });
-            }
-
-            const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
-            const resource = createAudioResource(audioFile);
-
-            // Add listener for when current song ends
-            player.on("stateChange", async (oldState, newState) => {
-              if (newState.status === "idle" && guildQueue.length > 0) {
-                // Play next song in queue
-                const nextSong = guildQueue.shift();
-                let nextTitle;
-
-                const info = await ytstream.getInfo(nextSong);
-                nextTitle = info.title;
-
-                const fileSafeTitle = sanitizeTitle(nextTitle);
-                youtubedl(nextSong, {
-                  extractAudio: true,
-                  audioFormat: "mp3",
-                  output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`,
-                  noCheckCertificates: true,
-                  noWarnings: true,
-                })
-                  .then((output) => {
-                    const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
-                    const resource = createAudioResource(audioFile);
-                    player.play(resource);
-                    message.channel.send({ content: `Now playing next song in queue: ***${nextTitle}***` });
-                  })
-                  .catch((err) => {
-                    message.channel.send({ content: `Error playing next song: ${err}` });
-                  });
-              }
-            });
-            player.play(resource);
-            connection.subscribe(player);
-          })
-          .catch((err) => {
-            message.channel.send({ content: `Error downloading audio: ${err}` });
-          });
-
+        helpers.handlePlay(args, videoTitle, message, player, connection, guildQueue);
         break;
       case "pause":
-        if (!channel)
-          return message.channel.send({
-            content: `There is currently nothing playing!`,
-          });
-        player.pause();
-        message.channel.send({ content: `Player paused.` });
+        helpers.handlePause(channel, player, message);
         break;
       case "resume":
-        {
-          if (!channel)
-            return message.channel.send({
-              content: `There is currently nothing playing!`,
-            });
-          player.unpause();
-          message.channel.send({ content: `Resuming playback.` });
-        }
+        helpers.handleResume(channel, player, message);
         break;
       case "skip":
-        {
-          if (!channel)
-            return message.channel.send({
-              content: `There is currently nothing playing!`,
-            });
-          let guildQueue = global.songQueue.get(guildId);
-          const nextSong = guildQueue.shift();
-          const nextTitle = await ytstream.getInfo(nextSong).then((info) => {
-            return info.title;
-          });
-          const fileSafeTitle = sanitizeTitle(nextTitle);
-          await youtubedl(nextSong, {
-            extractAudio: true,
-            audioFormat: "mp3",
-            output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`,
-            noCheckCertificates: true,
-            noWarnings: true,
-            // dumpSingleJson: true,
-          })
-            .then((output) => {
-              const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
-              const resource = createAudioResource(audioFile);
-              player.play(resource);
-              message.channel.send({ content: `Now playing next song in queue: ***${nextTitle}***` });
-            })
-            .catch((err) => {
-              message.channel.send({ content: `Error playing next song: ${err}` });
-            });
-        }
+        helpers.handleSkip(channel, player, message, guildQueue);
         break;
       case "loop":
-        {
-          if (!channel)
-            return message.channel.send({
-              content: `There is currently nothing playing!`,
-            });
-        }
+        helpers.handleLoop(channel, message);
         break;
       case "stop":
-        if (!channel)
-          return message.channel.send({
-            content: `There is currently nothing playing!`,
-          });
-        player.stop();
-        connection.destroy();
-        message.channel.send({ content: `Playback stopped!` });
+        helpers.handleStop(channel, player, connection, message);
         break;
       case "queue":
-        {
-          if (!channel)
-            return message.channel.send({
-              content: `There is currently nothing playing!`,
-            });
-          // const queue = audioManager.queue(vc).reduce((text, song, index) => {
-          //   if (index > 50) {
-          //     return text;
-          //   } else if (index > 49) {
-          //     text += `\n...`;
-          //     return text;
-          //   }
-          //   if (song.title) text += `\n**[${index + 1}]** ${song.title}`;
-          //   else text += `\n**[${index + 1}]** ${song.url}`;
-          //   return text;
-          // }, `__**QUEUE**__`);
-          // const queueEmbed = new EmbedBuilder()
-          //   .setColor(`Blurple`)
-          //   .setTitle(`Queue: [${audioManager.queue(vc).length}] Songs`)
-          //   .setDescription(queue);
-          // if (queueEmbed) {
-          //   message.channel.send({ embeds: [queueEmbed] });
-          // } else {
-          //   message.channel.send({ content: `There was an error while reading the queue!` });
-          // }
-        }
-
+        helpers.handleQueue(channel, message, guildQueue); //TODO Something wrong with skipping, investigate later!
         break;
       case "volume":
-        if (!channel)
-          return message.channel.send({
-            content: `There is currently nothing playing!`,
-          });
-        if (!args[1]) return message.channel.send({ content: `Please provide the volume` });
-        if (Number(args[1]) < 1 || Number(args[1]) > 10)
-          return message.channel.send({
-            content: `Please provide a volume between 1-10`,
-          });
-
+        helpers.handleVolume(channel, args, message);
         break;
       case "current":
-        if (!vc)
-          return message.channel.send({
-            content: `There is currently nothing playing!`,
-          });
-        function encodeDuration(millis) {
-          var minutes = Math.floor(millis / 60000);
-          var seconds = ((millis % 60000) / 1000).toFixed(0);
-          return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
-        }
-        try {
-          // TODO Change this source
-          let songData = audioManager.getCurrentSong(vc);
-          songData = {
-            ...songData,
-            ytInfo: {
-              author: songData.ytInfo?.author,
-              uploaded: songData.ytInfo?.uploaded,
-              views: songData.ytInfo?.views,
-              duration: encodeDuration(songData.ytInfo?.duration),
-            },
-          };
-
-          var msg = "```json\n{";
-          for (var key in songData) {
-            if (songData.hasOwnProperty(key)) {
-              msg = msg + '\n "' + key + '": "' + JSON.stringify(songData[key], null, " ") + '",';
-            }
-          }
-          msg = msg.substring(0, msg.length - 1);
-          msg = msg + "\n}```";
-
-          message.channel.send({ content: msg });
-        } catch (err) {
-          console.log("*** Get current song error:", err);
-          message.channel.send({
-            content: `There was an error getting the current song.`,
-          });
-        }
-
+        helpers.handleCurrent(channel, message, guildQueue);
         break;
       case "shuffle":
-        if (!channel)
-          return message.channel.send({
-            content: `There is currently nothing playing!`,
-          });
-        message.channel.send({
-          content: `The queue has successfully been shufffled`,
-        });
+        helpers.handleShuffle(channel, message, guildQueue);
         break;
       case "clear":
-        if (!channel)
-          return message.channel.send({
-            content: `There is no queue!`,
-          });
-        message.channel.send({
-          content: `The queue has successfully been cleared`,
-        });
+        helpers.handleClear(channel, message);
         break;
-      // case "crunch":
-      //   if (!vc)
-      //     return message.channel.send({
-      //       content: `There is no queue!`,
-      //     });
-      //   const queue = audioManager.queue(vc);
-      //   const uvc2 = message.member.voice.channel || message.guild.members.me.voice.channel;
-      //   //I don't think this works
-      //   audioManager.setFilter(uvc2, ["acrusher=samples=250:lfo=1:lforange=200:bits=256"]);
-      //   const filtys = audioManager.getFilters(uvc2);
-      //   console.log(filtys);
-      //   message.channel.send({
-      //     content: "CRUNCHING " + queue[0].title,
-      //   });
-    }
-  }
-});
-
-// TODO Likely deprecated, delete this
-client.on("voiceStateUpdate", async (oldState, newState) => {
-  if (newState?.id === "1094140206367653940" && audioManager) {
-    //check if bot left vc
-    let error = false;
-    if (newState?.channelId == null && oldState?.channelId != null) {
-      try {
-        //destroy audiomanager and end playback
-        // if (audioManager) {
-        //   audioManager.destroy();
-        // }
-      } catch (err) {
-        // console.log("*** AudioManager Destroy error?", err);
-        error = true;
-      }
     }
   }
 });
@@ -642,9 +363,3 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.TOKEN);
-
-const getAudioManager = () => {
-  return audioManager;
-};
-
-module.exports = getAudioManager;
