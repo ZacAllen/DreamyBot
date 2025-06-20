@@ -9,6 +9,7 @@ module.exports = {
     **~ Music Commands ~**
     
     **${pre}play [youtube link]:** Plays a song.
+    **${pre}playlist [youtube playlist link]:** Queues up and plays a playlist.
     **${pre}pause:** Pause the current track.
     **${pre}resume:** Resumes paused track.
     **${pre}skip:** Skip the current track.

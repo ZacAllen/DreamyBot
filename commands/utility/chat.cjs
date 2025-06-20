@@ -17,7 +17,7 @@ module.exports = {
   async execute(interaction) {
     await interaction.reply("Let me think about it...");
     let completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4.1",
       messages: [
         {
           role: "system",
