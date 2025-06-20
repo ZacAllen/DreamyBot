@@ -335,7 +335,7 @@ const handleShuffle = (channel, message, guildQueue) => {
     content: `The queue has successfully been shufffled`,
   });
 };
-// TODO ---------------------------------------------------------------------------------------------------------------
+
 const handleClear = (channel, message) => {
   if (!channel)
     return message.channel.send({
