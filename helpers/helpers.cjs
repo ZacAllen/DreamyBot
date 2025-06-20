@@ -14,6 +14,8 @@ const sanitizeTitle = (title) => {
   return title.replace(/[<>:"/\\|?*\x00-\x1F]/g, "-");
 };
 
+const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0";
+
 const isUnavailable = async (track) => {
   let hasError = false;
   if (track.title.includes("Private video") && track.title.includes("Deleted video")) {
@@ -34,87 +36,47 @@ const isUnavailable = async (track) => {
 const handlePlaylist = async (args, message, player, connection, guildQueue) => {
   if (!args[1] || !args[1].includes("/playlist")) return message.channel.send({ content: `Please provide a playlist link` });
 
-  let ytdlPlaylist = [];
-  await youtubedl(args[1], {
-    dumpSingleJson: true,
-    yesPlaylist: true,
-    flatPlaylist: true,
-    skipUnavailableFragments: true,
-    forceIpv6: true,
-    noCheckCertificates: true,
-    noWarnings: true,
-    preferFreeFormats: true,
-    cookiesFromBrowser: "firefox",
-    addHeader: ["referer:youtube.com", "user-agent:googlebot"],
-  })
-    .then(async (output) => {
-      let newArray = []; //create new array for filtered songs
-      // resolve all ytstream song checks (ytdl cannot verify if video is unavailable consistently)
-      await Promise.all(
-        output.entries.map((track) => {
-          return isUnavailable(track);
-        })
-      )
-        .then((result) => {
-          if (result) {
-            newArray = output.entries.filter((track, index) => result[index] === false);
-          }
-        })
-        .catch((err) => {
-          console.log("*** PromiseErr", err);
-        });
-      ytdlPlaylist = newArray;
-    })
-    .catch((err) => console.log(err));
+  let ytdlPlaylist;
+  try {
+    const output = await youtubedl(args[1], {
+      dumpSingleJson: true,
+      yesPlaylist: true,
+      flatPlaylist: true,
+      skipUnavailableFragments: true,
+      forceIpv6: true,
+      noCheckCertificates: true,
+      noWarnings: true,
+      preferFreeFormats: true,
+      cookiesFromBrowser: "firefox",
+      addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
+    });
+
+    const availability = await Promise.all(output.entries.map((track) => isUnavailable(track)));
+    ytdlPlaylist = output.entries.filter((track, index) => availability[index] === false);
+  } catch (err) {
+    console.log("Error fetching playlist:", err);
+    return message.channel.send({ content: "Error fetching playlist details." });
+  }
 
   if (ytdlPlaylist.length === 0) {
     return message.channel.send({ content: `No valid songs found in playlist` });
   }
 
-  const firstSong = ytdlPlaylist[0];
-  const fileSafePLTitle = sanitizeTitle(firstSong.title);
+  const wasPlaying = player.state.status === "playing";
+  ytdlPlaylist.forEach((song) => guildQueue.push({ url: song.url, title: song.title }));
+  message.channel.send({ content: `Added ${ytdlPlaylist.length} songs to queue` });
 
-  // Download and play first song
-  await youtubedl(firstSong.url, {
-    extractAudio: true,
-    audioFormat: "mp3",
-    output: `./yt-dl-output/${fileSafePLTitle}.%(ext)s`,
-    noCheckCertificates: true,
-    noWarnings: true,
-  })
-    .then((output) => {
-      const audioFile = `./yt-dl-output/${fileSafePLTitle}.mp3`;
-      const resource = createAudioResource(audioFile);
-
-      // If already playing, add all songs to queue
-      if (player.state.status === "playing") {
-        ytdlPlaylist.forEach((song) => guildQueue.push({ url: song.url, title: firstSong.title }));
-        message.channel.send({ content: `Added ${ytdlPlaylist.length} songs to queue` });
-        return;
+  if (!wasPlaying) {
+    const channel = message.member.voice.channel;
+    if (channel) {
+      try {
+        await handleSkip(channel, player, connection, message, guildQueue);
+      } catch (err) {
+        console.log("Error in playing from queue:", err);
+        message.channel.send({ content: `Error playing next song: ${err.message}` });
       }
-
-      // Play first song and add rest to queue
-      player.play(resource);
-      connection.subscribe(player);
-      // Store current song info
-      global.currentSongMap.set(message.guild.id, {
-        url: firstSong.url,
-        title: firstSong.title,
-      });
-      message.channel.send({ content: `Now playing: ***${firstSong.title}***` });
-
-      // Add remaining songs to queue
-      for (let i = 1; i < ytdlPlaylist.length; i++) {
-        guildQueue.push({ url: ytdlPlaylist[i].url, title: ytdlPlaylist[i].title });
-      }
-
-      if (ytdlPlaylist.length > 1) {
-        message.channel.send({ content: `Added ${ytdlPlaylist.length - 1} more songs to queue` });
-      }
-    })
-    .catch((err) => {
-      message.channel.send({ content: `Error playing playlist: ${err}` });
-    });
+    }
+  }
 };
 
 const handlePlay = async (args, videoTitle, message, player, connection, guildQueue) => {
@@ -127,7 +89,9 @@ const handlePlay = async (args, videoTitle, message, player, connection, guildQu
     audioFormat: "mp3",
     output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`, // Saves to root directory with video title as filename
     noCheckCertificates: true,
+    cookiesFromBrowser: "firefox",
     noWarnings: true,
+    addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
   })
     .then((output) => {
       // If player is already playing, add to queue instead
@@ -172,7 +136,7 @@ const handleResume = (channel, player, message) => {
   message.channel.send({ content: `Resuming playback.` });
 };
 
-const handleSkip = async (channel, player, message, guildQueue) => {
+const handleSkip = async (channel, player, connection, message, guildQueue) => {
   if (!channel)
     return message.channel.send({
       content: `There is currently nothing playing!`,
@@ -182,33 +146,48 @@ const handleSkip = async (channel, player, message, guildQueue) => {
       content: `There are no more songs in the queue!`,
     });
   }
-
+  const skippedTitle = global.currentSongMap.get(message.guild.id)?.title;
   const nextSong = guildQueue.shift()?.url;
-  const nextTitle = await ytstream.getInfo(nextSong).then((info) => {
-    return info.title;
-  });
-  const fileSafeTitle = sanitizeTitle(nextTitle);
-  await youtubedl(nextSong, {
-    extractAudio: true,
-    audioFormat: "mp3",
-    output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`,
-    noCheckCertificates: true,
-    noWarnings: true,
-  })
-    .then((output) => {
-      const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
-      const resource = createAudioResource(audioFile);
-      player.play(resource);
-      // Update current song
-      global.currentSongMap.set(message.guild.id, {
-        url: nextSong,
-        title: nextTitle,
-      });
-      message.channel.send({ content: `Now playing: ***${nextTitle}***` });
-    })
-    .catch((err) => {
-      message.channel.send({ content: `Error playing next song: ${err}` });
+
+  if (!nextSong) {
+    return message.channel.send({ content: "Queue is empty or song has no URL." });
+  }
+
+  try {
+    const info = await ytstream.getInfo(nextSong);
+    const nextTitle = info.title;
+    const fileSafeTitle = sanitizeTitle(nextTitle);
+
+    await youtubedl(nextSong, {
+      extractAudio: true,
+      audioFormat: "mp3",
+      output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`,
+      noCheckCertificates: true,
+      cookiesFromBrowser: "firefox",
+      noWarnings: true,
+      addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
     });
+
+    const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
+    const resource = createAudioResource(audioFile);
+
+    // Subscribe player to connection before playing
+    connection.subscribe(player);
+    player.play(resource);
+
+    global.currentSongMap.set(message.guild.id, {
+      url: nextSong,
+      title: nextTitle,
+    });
+
+    if (skippedTitle) {
+      message.channel.send({ content: `Skipped: ***${skippedTitle}***` });
+    }
+    message.channel.send({ content: `Now playing: ***${nextTitle}***` });
+  } catch (err) {
+    console.error("Error in handleSkip:", err);
+    message.channel.send({ content: `Error playing next song: ${err.message}` });
+  }
 };
 // TODO ---------------------------------------------------------------------------------------------------------------
 const handleLoop = (channel, message) => {
@@ -230,7 +209,6 @@ const handleStop = (channel, player, connection, message) => {
   message.channel.send({ content: `Playback stopped!` });
 };
 
-// TODO ---------------------------------------------------------------------------------------------------------------
 const handleQueue = (channel, message, guildQueue) => {
   if (!channel)
     return message.channel.send({
@@ -280,7 +258,7 @@ const handleVolume = (channel, args, message) => {
       content: `Please provide a volume between 1-10`,
     });
 };
-// TODO ---------------------------------------------------------------------------------------------------------------
+
 const handleCurrent = async (channel, message, guildQueue) => {
   if (!channel)
     return message.channel.send({
@@ -334,7 +312,7 @@ const handleCurrent = async (channel, message, guildQueue) => {
     });
   }
 };
-// TODO ---------------------------------------------------------------------------------------------------------------
+
 const handleShuffle = (channel, message, guildQueue) => {
   if (!channel)
     return message.channel.send({
@@ -363,9 +341,25 @@ const handleClear = (channel, message) => {
     return message.channel.send({
       content: `There is no queue!`,
     });
-  message.channel.send({
-    content: `The queue has successfully been cleared`,
-  });
+  try {
+    const guildId = message.guild.id;
+    const guildQueue = global.songQueue.get(guildId);
+
+    if (!guildQueue || guildQueue.length === 0) {
+      return message.channel.send({
+        content: "The queue is already empty.",
+      });
+    }
+    // Clear the queue by setting global songqueue to empty array
+    global.songQueue.set(guildId, []);
+    message.channel.send({
+      content: `The queue has successfully been cleared`,
+    });
+  } catch (err) {
+    message.channel.send({
+      content: `There was an error clearing the queue ${err || (err.message ?? "")}`,
+    });
+  }
 };
 
 module.exports = {

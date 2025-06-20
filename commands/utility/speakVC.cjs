@@ -67,24 +67,9 @@ module.exports = {
 
     let isPaused = false;
     let vc = interaction.member.voice.channel;
-    let storedSong;
-
-    // console.log("*** Oh?", currentPlayer);
 
     const player = createAudioPlayer();
     const resource = createAudioResource(speechFile);
-    // const connections = new Map();
-
-    if (currentPlayer) {
-      try {
-        console.log("*** Pausing current player");
-        storedSong = currentPlayer.getCurrentSong(vc);
-        currentPlayer.pause(vc);
-        isPaused = true;
-      } catch (err) {
-        console.log("*** Error", err);
-      }
-    }
 
     //! For sure player is causing issues, conflicting with audiomanager?
     player.play(resource);
@@ -96,7 +81,6 @@ module.exports = {
         console.log("*** RESUMING PLEASE?", currentPlayer.getCurrentSong(vc).paused, currentPlayer.getCurrentSong(vc).pauses);
         isPaused = false;
       }
-      // connection.destroy()
     });
 
     await interaction.editReply({

@@ -1,7 +1,13 @@
 require("dotenv").config(); //to start process from .env file
 const fs = require("fs");
 const youtubedl = require("youtube-dl-exec");
-const { createAudioPlayer, NoSubscriberBehavior, createAudioResource, joinVoiceChannel } = require("@discordjs/voice");
+const {
+  createAudioPlayer,
+  NoSubscriberBehavior,
+  createAudioResource,
+  joinVoiceChannel,
+  AudioPlayerStatus,
+} = require("@discordjs/voice");
 const path = require("path");
 const cookies = require("./cookies.json");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
@@ -29,6 +35,7 @@ ytstream.setPreference("api", "ANDROID"); // Tells the package to use the api an
 // ytstream.setPreference("scrape", "ANDROID"); // Tells the package to use the scrape methods instead of the api, even if an api key has been provided
 
 ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0";
+const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0";
 // ytstream.userAgent =
 //   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36";
 
@@ -95,47 +102,53 @@ for (const file of eventFiles) {
 }
 
 const initializePlayerListener = (player, guildQueue, message) => {
-  return player.on("stateChange", async (oldState, newState) => {
-    if (newState.status === "idle" && guildQueue.length > 0) {
-      // Play next song in queue
-      const nextSong = guildQueue.shift()?.url;
-      let nextTitle;
+  player.on(AudioPlayerStatus.Idle, async () => {
+    if (guildQueue.length === 0) {
+      if (global.currentSongMap) {
+        global.currentSongMap.delete(message.guild.id);
+      }
+      return;
+    }
 
+    const nextSong = guildQueue.shift()?.url;
+    if (!nextSong) return;
+
+    try {
       const info = await ytstream.getInfo(nextSong);
-      nextTitle = info.title;
-
+      const nextTitle = info.title;
       const fileSafeTitle = helpers.sanitizeTitle(nextTitle);
-      youtubedl(nextSong, {
+
+      await youtubedl(nextSong, {
         extractAudio: true,
         audioFormat: "mp3",
         output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`,
         noCheckCertificates: true,
+        cookiesFromBrowser: "firefox",
+        addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
         noWarnings: true,
-      })
-        .then((output) => {
-          const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
-          const resource = createAudioResource(audioFile);
-          player.play(resource);
+      });
 
-          // Update current song in the map
-          if (!global.currentSongMap) {
-            global.currentSongMap = new Map();
-          }
-          global.currentSongMap.set(message.guild.id, {
-            url: nextSong,
-            title: nextTitle,
-          });
+      const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
 
-          message.channel.send({ content: `Now playing: ***${nextTitle}***` });
-        })
-        .catch((err) => {
-          message.channel.send({ content: `Error playing next song: ${err}` });
-        });
-    } else if (newState.status === "idle") {
-      // No more songs in queue, clear current song
-      if (global.currentSongMap) {
-        global.currentSongMap.delete(message.guild.id);
+      // Verify file exists and is not empty before playing
+      if (!fs.existsSync(audioFile) || fs.statSync(audioFile).size === 0) {
+        message.channel.send({ content: `Error: Audio file for "${nextTitle}" is missing or empty. Skipping.` });
+        return; // Skip this song and wait for next idle event
       }
+
+      const resource = createAudioResource(audioFile);
+      player.play(resource);
+
+      if (!global.currentSongMap) {
+        global.currentSongMap = new Map();
+      }
+      global.currentSongMap.set(message.guild.id, {
+        url: nextSong,
+        title: nextTitle,
+      });
+      console.log("*** NOW PLAYING", nextTitle);
+    } catch (err) {
+      message.channel.send({ content: `Error playing next song: ${err}` });
     }
   });
 };
@@ -192,13 +205,20 @@ client.on("messageCreate", async (message) => {
           return null;
         });
     }
-    // Get or create player for this guild
+    // Initialize playerObject map, ideally there should only be one player per guild
     const guildId = message.guild.id;
     if (!global.playerObjectList) {
       global.playerObjectList = new Map();
     }
+    let guildQueue;
+
+    // Initialize queue if it doesn't exist
+    if (!global.songQueue) {
+      global.songQueue = new Map();
+    }
 
     let player;
+    // Get or create player for this guild
     if (global.playerObjectList.has(guildId)) {
       player = global.playerObjectList.get(guildId);
     } else {
@@ -208,6 +228,14 @@ client.on("messageCreate", async (message) => {
         },
       });
       global.playerObjectList.set(guildId, player);
+      // Get or create queue for this guild - must be done before listener is attached
+      guildQueue = global.songQueue.get(guildId);
+      if (!guildQueue) {
+        guildQueue = [];
+        global.songQueue.set(guildId, guildQueue);
+      }
+      // !! Initialize listener only when player is created
+      initializePlayerListener(player, guildQueue, message);
     }
 
     const channel = message.member.voice.channel;
@@ -223,28 +251,26 @@ client.on("messageCreate", async (message) => {
       adapterCreator: channel.guild.voiceAdapterCreator,
     });
 
-    // Initialize queue if it doesn't exist
-    if (!global.songQueue) {
-      global.songQueue = new Map();
-    }
-
     // Initialize currentSongMap if it doesn't exist
     if (!global.currentSongMap) {
       global.currentSongMap = new Map();
     }
 
-    // Get or create queue for this guild
-    let guildQueue = global.songQueue.get(guildId);
-    if (!guildQueue) {
-      guildQueue = [];
-      global.songQueue.set(guildId, guildQueue);
-    }
+    // Log listener count for debugging
+    console.log(
+      `[DEBUG] ${new Date().toLocaleTimeString()} - Listeners for guild ${guildId}: ${player.listenerCount(
+        AudioPlayerStatus.Idle
+      )}`
+    );
 
-    // Add listener for when current song ends
-    initializePlayerListener(player, guildQueue, message);
+    //  Set guildQueue globally for use in helpers as they are called
+    guildQueue = global.songQueue.get(guildId);
 
     switch (args[0].toLowerCase()) {
       case "playlist":
+        // ?  "This can happen if the audio player becomes idle immediately after a song starts,
+        // triggering the next song in the queue to be processed prematurely.
+        // This cycle repeats, causing multiple downloads and skips."
         helpers.handlePlaylist(args, message, player, connection, guildQueue);
         break;
       case "play":
@@ -257,7 +283,7 @@ client.on("messageCreate", async (message) => {
         helpers.handleResume(channel, player, message);
         break;
       case "skip":
-        helpers.handleSkip(channel, player, message, guildQueue);
+        helpers.handleSkip(channel, player, connection, message, guildQueue);
         break;
       case "loop":
         helpers.handleLoop(channel, message);
@@ -266,7 +292,7 @@ client.on("messageCreate", async (message) => {
         helpers.handleStop(channel, player, connection, message);
         break;
       case "queue":
-        helpers.handleQueue(channel, message, guildQueue); //TODO Something wrong with skipping, investigate later!
+        helpers.handleQueue(channel, message, guildQueue);
         break;
       case "volume":
         helpers.handleVolume(channel, args, message);
