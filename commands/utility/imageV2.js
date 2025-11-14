@@ -23,10 +23,10 @@ class ImageV2Command {
       console.log("*** Seed", randomSeed);
       const out = await inference
         .textToImage({
-          // accessToken: HF_TOKEN,
-          model: "black-forest-labs/FLUX.1-schnell",
+          accessToken: HF_TOKEN,
+          // model: "black-forest-labs/FLUX.1-schnell",
           // model: "stabilityai/stable-diffusion-2",
-          // model: "black-forest-labs/FLUX.1-dev",
+          model: "black-forest-labs/FLUX.1-dev",
           // model: "black-forest-labs/FLUX.1-dev-onnx",
           inputs: `${message} ${randomSeed}`,
           parameters: {
@@ -38,6 +38,7 @@ class ImageV2Command {
           },
         })
         .catch((err) => {
+          console.log("*** ERR", err);
           interaction.editReply(`Failed to generate image during generation. Error: ${err}`);
         });
 

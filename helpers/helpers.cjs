@@ -14,7 +14,9 @@ const sanitizeTitle = (title) => {
   return title.replace(/[<>:"/\\|?*\x00-\x1F]/g, "-");
 };
 
-const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0";
+const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0";
+// const userAgent =
+//   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
 
 const isUnavailable = async (track) => {
   let hasError = false;
@@ -48,6 +50,7 @@ const handlePlaylist = async (args, message, player, connection, guildQueue) => 
       noWarnings: true,
       preferFreeFormats: true,
       cookiesFromBrowser: "firefox",
+      extractorArgs: "youtubetab:skip=authcheck",
       addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
     });
 
@@ -90,6 +93,7 @@ const handlePlay = async (args, videoTitle, message, player, connection, guildQu
     output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`, // Saves to root directory with video title as filename
     noCheckCertificates: true,
     cookiesFromBrowser: "firefox",
+    extractorArgs: "youtubetab:skip=authcheck",
     noWarnings: true,
     addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
   })
@@ -114,6 +118,7 @@ const handlePlay = async (args, videoTitle, message, player, connection, guildQu
       });
     })
     .catch((err) => {
+      console.log("*** Error downloading audio:", err);
       message.channel.send({ content: `Error downloading audio: ${err}` });
     });
 };
@@ -164,6 +169,7 @@ const handleSkip = async (channel, player, connection, message, guildQueue) => {
       output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`,
       noCheckCertificates: true,
       cookiesFromBrowser: "firefox",
+      extractorArgs: "youtubetab:skip=authcheck",
       noWarnings: true,
       addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
     });
