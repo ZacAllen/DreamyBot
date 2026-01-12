@@ -14,7 +14,7 @@ const sanitizeTitle = (title) => {
   return title.replace(/[<>:"/\\|?*\x00-\x1F]/g, "-");
 };
 
-const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0";
+const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0";
 // const userAgent =
 //   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
 
@@ -92,6 +92,7 @@ const handlePlay = async (args, videoTitle, message, player, connection, guildQu
     audioFormat: "mp3",
     output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`, // Saves to root directory with video title as filename
     noCheckCertificates: true,
+    forceIpv4: true,
     cookiesFromBrowser: "firefox",
     extractorArgs: "youtubetab:skip=authcheck",
     noWarnings: true,
