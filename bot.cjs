@@ -366,7 +366,7 @@ client.on("messageCreate", async (message) => {
   if (tiktokLink) {
     message.author.bot ? false : message.suppressEmbeds(true), message.suppressEmbeds(true);
     message.reply({
-      content: `[⠀](${mess.replace(tiktokLink, "https://vxtiktok.com")})`,
+      content: `[⠀](${mess.replace(tiktokLink, "https://kktiktok.com")})`,
     });
   }
 });
