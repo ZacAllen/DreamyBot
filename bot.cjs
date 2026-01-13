@@ -9,7 +9,7 @@ const {
   AudioPlayerStatus,
 } = require("@discordjs/voice");
 const path = require("path");
-const cookies = require("./cookies.json");
+// const cookies = require("./cookies.json");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
 const { EmbedBuilder } = require("discord.js");
 const ytstream = require("yt-stream");
@@ -34,22 +34,20 @@ ytstream.setPreference("api", "ANDROID"); // Tells the package to use the api an
 
 // ytstream.setPreference("scrape", "ANDROID"); // Tells the package to use the scrape methods instead of the api, even if an api key has been provided
 
-ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0";
-const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0";
-// ytstream.userAgent =
-//   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36";
+ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0";
+const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0";
 
-const agent = new ytstream.YTStreamAgent(cookies, {
-  keepAlive: true,
-  keepAliveMsecs: 5e3,
-  // localAddress: "2600:1700:37b0:c60::44",
-  // localAddress: "127.0.0.1",
-});
+// const agent = new ytstream.YTStreamAgent(cookies, {
+//   keepAlive: true,
+//   keepAliveMsecs: 5e3,
+//   // localAddress: "2600:1700:37b0:c60::44",
+//   // localAddress: "127.0.0.1",
+// });
 
 // agent.syncFile(path.join(__dirname, `./cookies.json`)); // This is an absolute path which will always work
-agent.syncFile(`./cookies.json`); // This is a relative path which will only work if the cookies.json file is inside the root folder of the process
+// agent.syncFile(`./cookies.json`); // This is a relative path which will only work if the cookies.json file is inside the root folder of the process
 
-ytstream.setGlobalAgent(agent);
+// ytstream.setGlobalAgent(agent);
 
 const client = new Client({
   intents: [
