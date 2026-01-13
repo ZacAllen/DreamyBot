@@ -10,7 +10,7 @@ class ImageV2Command {
   constructor() {
     this.data = new SlashCommandBuilder()
       .setName("image-v2")
-      .setDescription("This is REAL art! (Flux Stable Diffusion)")
+      .setDescription("This is REAL art! (FLUX.2-dev)")
       .addStringOption((option) =>
         option.setName("message").setDescription("Ask DreamyBot to create anything you can imagine 😲").setRequired(true)
       )
@@ -24,6 +24,7 @@ class ImageV2Command {
       const out = await inference
         .textToImage({
           accessToken: HF_TOKEN,
+          // model: "black-forest-labs/FLUX.2-dev",
           // model: "black-forest-labs/FLUX.1-schnell",
           // model: "stabilityai/stable-diffusion-2",
           model: "black-forest-labs/FLUX.1-dev",

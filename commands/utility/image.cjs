@@ -31,8 +31,7 @@ module.exports = {
     let response = await openai.images
       .generate({
         model: "dall-e-3", //TODO Update to use gpt-4o when available via API
-        // model: "gpt-image-1", // TODO verification to use? hmmm
-        prompt: message,
+        // model: "gpt-image-1", // TODO verification to use? No thanks
         n: 1,
         size: size,
       })

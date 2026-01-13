@@ -16,7 +16,7 @@
     "@gradio/client": "^1.6.0-beta.3",
     "@huggingface/agents": "^0.0.5",
     "@huggingface/hub": "^0.17.0",
-    "@huggingface/inference": "^3.5.2",
+    "@huggingface/inference": "^4.13.5",
     "@snazzah/davey": "^0.1.7",
     "discord.js": "^14.24.2",
     "discordaudio": "^3.2.6",
