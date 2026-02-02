@@ -1,7 +1,6 @@
 const fs = require("fs");
 const youtubedl = require("youtube-dl-exec");
 const { createAudioResource } = require("@discordjs/voice");
-const ytstream = require("yt-stream");
 
 // Global map to store current playing songs per guild
 if (!global.currentSongMap) {
@@ -14,25 +13,68 @@ const sanitizeTitle = (title) => {
   return title.replace(/[<>:"/\\|?*\x00-\x1F]/g, "-");
 };
 
-const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0";
-// const userAgent =
-//   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36";
+const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0";
+
+/**
+ * Get video info using youtube-dl-exec
+ * @param {string} url - YouTube video URL
+ * @returns {Promise<Object>} Video info object with title, description, author, duration, views
+ */
+const getVideoInfo = async (url) => {
+  const info = await youtubedl(url, {
+    dumpSingleJson: true,
+    noWarnings: true,
+    noCheckCertificates: true,
+    cookiesFromBrowser: "firefox",
+    // Let yt-dlp use default client with automatic fallbacks
+    // Only skip auth check for tabs/playlists
+    extractorArgs: "youtubetab:skip=authcheck,youtube:player_client=default,-android_sdkless",
+    addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
+  });
+  console.log("*** getVideoInfo info", info.title);
+  return {
+    title: info.title,
+    description: info.description || "",
+    author: info.uploader || info.channel || "Unknown",
+    duration: (info.duration || 0) * 1000, // Convert seconds to milliseconds for consistency
+    views: info.view_count || 0,
+    url: info.webpage_url || url,
+  };
+};
+
+/**
+ * Get playlist info using youtube-dl-exec
+ * @param {string} url - YouTube playlist URL
+ * @returns {Promise<Object>} Playlist info object with title and entries
+ */
+const getPlaylistInfo = async (url) => {
+  const info = await youtubedl(url, {
+    dumpSingleJson: true,
+    yesPlaylist: true,
+    flatPlaylist: true,
+    noWarnings: true,
+    noCheckCertificates: true,
+    cookiesFromBrowser: "firefox",
+    extractorArgs: "youtubetab:skip=authcheck,youtube:player_client=default,-android_sdkless",
+    addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
+  });
+  return {
+    title: info.title,
+    entries: info.entries || [],
+  };
+};
 
 const isUnavailable = async (track) => {
-  let hasError = false;
-  if (track.title.includes("Private video") && track.title.includes("Deleted video")) {
+  if (track.title.includes("Private video") || track.title.includes("Deleted video")) {
     return true;
-  } else {
-    try {
-      await ytstream.getInfo(track.url).catch((err) => {
-        console.log("*** isUnavailable error", err, " - ", track.title);
-        hasError = true;
-      });
-    } catch (err) {
-      hasError = true;
-    }
   }
-  return hasError;
+  try {
+    await getVideoInfo(track.url);
+    return false;
+  } catch (err) {
+    console.log("*** isUnavailable error", err.message || err, " - ", track.title);
+    return true;
+  }
 };
 
 const handlePlaylist = async (args, message, player, connection, guildQueue) => {
@@ -45,12 +87,11 @@ const handlePlaylist = async (args, message, player, connection, guildQueue) => 
       yesPlaylist: true,
       flatPlaylist: true,
       skipUnavailableFragments: true,
-      forceIpv6: true,
       noCheckCertificates: true,
       noWarnings: true,
       preferFreeFormats: true,
       cookiesFromBrowser: "firefox",
-      extractorArgs: "youtubetab:skip=authcheck",
+      extractorArgs: "youtubetab:skip=authcheck,youtube:player_client=default,-android_sdkless",
       addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
     });
 
@@ -85,6 +126,11 @@ const handlePlaylist = async (args, message, player, connection, guildQueue) => 
 const handlePlay = async (args, videoTitle, message, player, connection, guildQueue) => {
   if (!args[1]) return message.channel.send({ content: `Please provide a song` });
 
+  // Handle null videoTitle (failed to fetch info)
+  if (!videoTitle) {
+    return message.channel.send({ content: `Error: Could not fetch video information. The video may be unavailable or restricted.` });
+  }
+
   const fileSafeTitle = sanitizeTitle(videoTitle);
   // Download video as audio file
   await youtubedl(args[1], {
@@ -94,9 +140,11 @@ const handlePlay = async (args, videoTitle, message, player, connection, guildQu
     noCheckCertificates: true,
     forceIpv4: true,
     cookiesFromBrowser: "firefox",
-    extractorArgs: "youtubetab:skip=authcheck",
+    extractorArgs: "youtubetab:skip=authcheck,youtube:player_client=default,-android_sdkless",
     noWarnings: true,
     addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
+    retries: 3,
+    format: "bestaudio/best",
   })
     .then((output) => {
       // If player is already playing, add to queue instead
@@ -120,7 +168,7 @@ const handlePlay = async (args, videoTitle, message, player, connection, guildQu
     })
     .catch((err) => {
       console.log("*** Error downloading audio:", err);
-      message.channel.send({ content: `Error downloading audio: ${err}` });
+      // message.channel.send({ content: `Error downloading audio: ${err}` });
     });
 };
 
@@ -160,7 +208,7 @@ const handleSkip = async (channel, player, connection, message, guildQueue) => {
   }
 
   try {
-    const info = await ytstream.getInfo(nextSong);
+    const info = await getVideoInfo(nextSong);
     const nextTitle = info.title;
     const fileSafeTitle = sanitizeTitle(nextTitle);
 
@@ -170,9 +218,11 @@ const handleSkip = async (channel, player, connection, message, guildQueue) => {
       output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`,
       noCheckCertificates: true,
       cookiesFromBrowser: "firefox",
-      extractorArgs: "youtubetab:skip=authcheck",
+      extractorArgs: "youtubetab:skip=authcheck,youtube:player_client=default,-android_sdkless",
       noWarnings: true,
       addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
+      retries: 3,
+      format: "bestaudio/best",
     });
 
     const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
@@ -282,10 +332,10 @@ const handleCurrent = async (channel, message, guildQueue) => {
       });
     }
 
-    // Get full song info
-    const info = await ytstream.getInfo(currentSong.url);
+    // Get full song info using youtube-dl-exec
+    const info = await getVideoInfo(currentSong.url);
 
-    // Format duration
+    // Format duration (info.duration is already in milliseconds from getVideoInfo)
     function encodeDuration(millis) {
       var minutes = Math.floor(millis / 60000);
       var seconds = ((millis % 60000) / 1000).toFixed(0);
@@ -296,9 +346,9 @@ const handleCurrent = async (channel, message, guildQueue) => {
       title: info.title,
       url: currentSong.url,
       description: info.description,
-      author: info.author || "Unknown",
-      duration: encodeDuration(info.duration || 0),
-      views: info.views || 0,
+      author: info.author,
+      duration: encodeDuration(info.duration),
+      views: info.views,
     };
 
     // Format the output
@@ -369,9 +419,88 @@ const handleClear = (channel, message) => {
   }
 };
 
+/**
+ * Debug helper to check which YouTube account's cookies are being used.
+ * Attempts to fetch subscription feed (requires auth) and logs account info.
+ * @returns {Promise<Object|null>} Account info or null if not authenticated
+ */
+const debugCookieAuth = async () => {
+  console.log("\n========== COOKIE AUTH DEBUG ==========");
+  console.log("Attempting to verify YouTube authentication...\n");
+
+  try {
+    // First, try to get info about a regular video to see raw cookie/auth data
+    const testVideoUrl = "https://www.youtube.com/watch?v=jNQXAC9IVRw"; // "Me at the zoo" - first YT video
+    const videoInfo = await youtubedl(testVideoUrl, {
+      dumpSingleJson: true,
+      verbose: true,
+      noCheckCertificates: true,
+      cookiesFromBrowser: "firefox",
+      addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
+    });
+
+    console.log("\n--- Video Info Retrieved ---");
+    console.log("Video Title:", videoInfo.title);
+    console.log("Channel:", videoInfo.channel || videoInfo.uploader || "Unknown");
+
+    // Try to access subscription feed - this requires authentication
+    try {
+      const subFeed = await youtubedl("https://www.youtube.com/feed/subscriptions", {
+        dumpSingleJson: true,
+        flatPlaylist: true,
+        playlistEnd: 3, // Just get first 3 items to check auth
+        noCheckCertificates: true,
+        cookiesFromBrowser: "firefox",
+        addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
+      });
+
+      console.log("\n--- Subscription Feed Access: SUCCESS ---");
+      console.log("You ARE authenticated with YouTube cookies!");
+      console.log("Subscriptions found:", subFeed.entries?.length || 0, "items");
+      
+      if (subFeed.entries && subFeed.entries.length > 0) {
+        console.log("Recent subscription videos:");
+        subFeed.entries.slice(0, 3).forEach((entry, i) => {
+          console.log(`  ${i + 1}. ${entry.title} (${entry.channel || entry.uploader || "Unknown channel"})`);
+        });
+      }
+
+      console.log("\n========================================\n");
+      return {
+        authenticated: true,
+        subscriptionCount: subFeed.entries?.length || 0,
+        recentSubscriptions: subFeed.entries?.slice(0, 3) || [],
+      };
+    } catch (subErr) {
+      console.log("\n--- Subscription Feed Access: FAILED ---");
+      console.log("You are NOT authenticated or cookies are invalid.");
+      console.log("Error:", subErr.message || subErr);
+      console.log("\nPossible reasons:");
+      console.log("  1. Firefox is not logged into YouTube");
+      console.log("  2. Cookies have expired");
+      console.log("  3. Wrong Firefox profile is being used");
+      console.log("\nTip: Try specifying a profile: cookiesFromBrowser: 'firefox:profile-name'");
+      console.log("\n========================================\n");
+      return {
+        authenticated: false,
+        error: subErr.message || subErr,
+      };
+    }
+  } catch (err) {
+    console.log("\n--- CRITICAL ERROR ---");
+    console.log("Failed to connect to YouTube at all.");
+    console.log("Error:", err.message || err);
+    console.log("\n========================================\n");
+    return null;
+  }
+};
+
 module.exports = {
   sanitizeTitle,
+  getVideoInfo,
+  getPlaylistInfo,
   isUnavailable,
+  debugCookieAuth,
   handlePlaylist,
   handlePlay,
   handlePause,

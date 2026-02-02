@@ -9,12 +9,12 @@ const {
   AudioPlayerStatus,
 } = require("@discordjs/voice");
 const path = require("path");
-// const cookies = require("./cookies.json");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
 const { EmbedBuilder } = require("discord.js");
-const ytstream = require("yt-stream");
 const wiki = require("wikipedia");
 const helpers = require("./helpers/helpers.cjs");
+
+const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0";
 
 // Load imageV2 module, i.e. non-commonjs
 const loadImageV2 = async () => {
@@ -28,26 +28,6 @@ const loadImageV2 = async () => {
     });
   return command;
 };
-
-ytstream.setApiKey(process.env.YT_API_KEY); // Only sets the api key
-ytstream.setPreference("api", "ANDROID"); // Tells the package to use the api and use a web client for requests
-
-// ytstream.setPreference("scrape", "ANDROID"); // Tells the package to use the scrape methods instead of the api, even if an api key has been provided
-
-ytstream.userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0";
-const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0";
-
-// const agent = new ytstream.YTStreamAgent(cookies, {
-//   keepAlive: true,
-//   keepAliveMsecs: 5e3,
-//   // localAddress: "2600:1700:37b0:c60::44",
-//   // localAddress: "127.0.0.1",
-// });
-
-// agent.syncFile(path.join(__dirname, `./cookies.json`)); // This is an absolute path which will always work
-// agent.syncFile(`./cookies.json`); // This is a relative path which will only work if the cookies.json file is inside the root folder of the process
-
-// ytstream.setGlobalAgent(agent);
 
 const client = new Client({
   intents: [
@@ -112,7 +92,8 @@ const initializePlayerListener = (player, guildQueue, message) => {
     if (!nextSong) return;
 
     try {
-      const info = await ytstream.getInfo(nextSong);
+      const info = await helpers.getVideoInfo(nextSong);
+      console.log("*** initializePlayerListener info", info.title);
       const nextTitle = info.title;
       const fileSafeTitle = helpers.sanitizeTitle(nextTitle);
 
@@ -124,6 +105,9 @@ const initializePlayerListener = (player, guildQueue, message) => {
         cookiesFromBrowser: "firefox",
         addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
         noWarnings: true,
+        extractorArgs: "youtubetab:skip=authcheck",
+        retries: 3,
+        format: "bestaudio/best",
       });
 
       const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
@@ -173,35 +157,32 @@ client.on("messageCreate", async (message) => {
     const includeCommands = [`play`];
 
     // Only fetch title for commands that need it!
-    let videoTitle =
-      includeCommands.includes(args[0]) && !args[1].includes("/playlist")
-        ? await ytstream
-            .getInfo(args[1])
-            .then((info) => {
-              return info.title;
-            })
-            .catch((err) => {
-              if (args[1]) console.log("Error playing YT link!", args[1], err);
-              playError = true;
-              message.channel.send({
-                content: `${err} - Please provide a valid video link.`,
-              });
-              return null;
-            })
-        : null;
-    if (includeCommands.includes(args[0]) && args[1].includes("/playlist")) {
-      videoTitle = await ytstream
-        .getPlaylist(args[1])
-        .then((info) => {
-          return info.title;
-        })
-        .catch((err) => {
-          playError = true;
-          message.channel.send({
-            content: `${err} - Please provide a valid playlist link.`,
-          });
-          return null;
+    let videoTitle = null;
+    let playError = false;
+    
+    if (includeCommands.includes(args[0]) && !args[1].includes("/playlist")) {
+      try {
+        const info = await helpers.getVideoInfo(args[1]);
+        videoTitle = info.title;
+      } catch (err) {
+        if (args[1]) console.log("Error playing YT link!", args[1], err);
+        playError = true;
+        message.channel.send({
+          content: `${err.message || err} - Please provide a valid video link.`,
         });
+      }
+    }
+    
+    if (includeCommands.includes(args[0]) && args[1].includes("/playlist")) {
+      try {
+        const info = await helpers.getPlaylistInfo(args[1]);
+        videoTitle = info.title;
+      } catch (err) {
+        playError = true;
+        message.channel.send({
+          content: `${err.message || err} - Please provide a valid playlist link.`,
+        });
+      }
     }
     // Initialize playerObject map, ideally there should only be one player per guild
     const guildId = message.guild.id;
