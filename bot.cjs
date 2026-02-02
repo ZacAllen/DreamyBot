@@ -1,6 +1,6 @@
 require("dotenv").config(); //to start process from .env file
 const fs = require("fs");
-const youtubedl = require("youtube-dl-exec");
+const ytdlp = require("./helpers/ytdlp.cjs");
 const {
   createAudioPlayer,
   NoSubscriberBehavior,
@@ -13,8 +13,6 @@ const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
 const { EmbedBuilder } = require("discord.js");
 const wiki = require("wikipedia");
 const helpers = require("./helpers/helpers.cjs");
-
-const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0";
 
 // Load imageV2 module, i.e. non-commonjs
 const loadImageV2 = async () => {
@@ -97,18 +95,7 @@ const initializePlayerListener = (player, guildQueue, message) => {
       const nextTitle = info.title;
       const fileSafeTitle = helpers.sanitizeTitle(nextTitle);
 
-      await youtubedl(nextSong, {
-        extractAudio: true,
-        audioFormat: "mp3",
-        output: `./yt-dl-output/${fileSafeTitle}.%(ext)s`,
-        noCheckCertificates: true,
-        cookiesFromBrowser: "firefox",
-        addHeader: [`referer:youtube.com`, `user-agent:${userAgent}`],
-        noWarnings: true,
-        extractorArgs: "youtubetab:skip=authcheck",
-        retries: 3,
-        format: "bestaudio/best",
-      });
+      await ytdlp.downloadAudio(nextSong, `./yt-dl-output/${fileSafeTitle}.%(ext)s`);
 
       const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
 
@@ -165,6 +152,7 @@ client.on("messageCreate", async (message) => {
         const info = await helpers.getVideoInfo(args[1]);
         videoTitle = info.title;
       } catch (err) {
+        console.log("*** Error playing YT link!", args);
         if (args[1]) console.log("Error playing YT link!", args[1], err);
         playError = true;
         message.channel.send({
