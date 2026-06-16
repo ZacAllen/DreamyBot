@@ -7,6 +7,11 @@ if (!global.currentSongMap) {
   global.currentSongMap = new Map();
 }
 
+// Global map to store loop state per guild
+if (!global.loopMap) {
+  global.loopMap = new Map();
+}
+
 // Clean titles with invalid FileSystem characters like ? or /, and spaces
 const sanitizeTitle = (title) => {
   // Replace spaces and characters that are invalid in Windows filenames with '_'
@@ -195,12 +200,26 @@ const handleSkip = async (channel, player, connection, message, guildQueue) => {
     message.channel.send({ content: `Error playing next song: ${err.message}` });
   }
 };
-// TODO ---------------------------------------------------------------------------------------------------------------
 const handleLoop = (channel, message) => {
   if (!channel)
     return message.channel.send({
       content: `There is currently nothing playing!`,
     });
+
+  const guildId = message.guild.id;
+  const currentLoop = global.loopMap.get(guildId) || false;
+  const newLoopState = !currentLoop;
+
+  global.loopMap.set(guildId, newLoopState);
+
+  const currentSong = global.currentSongMap.get(guildId);
+  if (newLoopState && currentSong) {
+    message.channel.send({ content: `🔂 Now looping: ***${currentSong.title}***` });
+  } else if (newLoopState) {
+    message.channel.send({ content: `🔂 Loop enabled` });
+  } else {
+    message.channel.send({ content: `➡️ Loop disabled` });
+  }
 };
 
 const handleStop = (channel, player, connection, message) => {

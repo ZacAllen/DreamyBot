@@ -79,9 +79,40 @@ for (const file of eventFiles) {
 
 const initializePlayerListener = (player, guildQueue, message) => {
   player.on(AudioPlayerStatus.Idle, async () => {
+    const guildId = message.guild.id;
+    const isLooping = global.loopMap?.get(guildId) || false;
+    const currentSong = global.currentSongMap?.get(guildId);
+
+    // If looping and we have a current song, replay it
+    if (isLooping && currentSong) {
+      try {
+        const fileSafeTitle = helpers.sanitizeTitle(currentSong.title);
+        const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
+
+        // File should already exist from previous play
+        if (fs.existsSync(audioFile) && fs.statSync(audioFile).size > 0) {
+          const resource = createAudioResource(audioFile);
+          player.play(resource);
+          console.log("*** LOOPING", currentSong.title);
+          return;
+        }
+        // If file doesn't exist, re-download it
+        await ytdlp.downloadAudio(currentSong.url, `./yt-dl-output/${fileSafeTitle}.%(ext)s`);
+        const resource = createAudioResource(audioFile);
+        player.play(resource);
+        console.log("*** LOOPING (re-downloaded)", currentSong.title);
+        return;
+      } catch (err) {
+        console.error("Error looping song:", err);
+        // Disable loop and fall through to play next song
+        global.loopMap.set(guildId, false);
+      }
+    }
+
+    // Not looping - proceed to next song in queue
     if (guildQueue.length === 0) {
       if (global.currentSongMap) {
-        global.currentSongMap.delete(message.guild.id);
+        global.currentSongMap.delete(guildId);
       }
       return;
     }
@@ -111,7 +142,7 @@ const initializePlayerListener = (player, guildQueue, message) => {
       if (!global.currentSongMap) {
         global.currentSongMap = new Map();
       }
-      global.currentSongMap.set(message.guild.id, {
+      global.currentSongMap.set(guildId, {
         url: nextSong,
         title: nextTitle,
       });
@@ -146,7 +177,7 @@ client.on("messageCreate", async (message) => {
     // Only fetch title for commands that need it!
     let videoTitle = null;
     let playError = false;
-    
+
     if (includeCommands.includes(args[0]) && !args[1].includes("/playlist")) {
       try {
         const info = await helpers.getVideoInfo(args[1]);
@@ -160,7 +191,7 @@ client.on("messageCreate", async (message) => {
         });
       }
     }
-    
+
     if (includeCommands.includes(args[0]) && args[1].includes("/playlist")) {
       try {
         const info = await helpers.getPlaylistInfo(args[1]);
