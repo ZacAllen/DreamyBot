@@ -20,7 +20,7 @@ module.exports = {
       model: "gpt-4.1",
       messages: [
         {
-          role: "system",
+          role: "usere",
           content: `${interaction.options.getString("message")}`,
         },
       ],

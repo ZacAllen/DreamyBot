@@ -100,6 +100,56 @@ const handlePlaylist = async (args, message, player, connection, guildQueue) => 
   }
 };
 
+/**
+ * Play the next available song in the queue, automatically skipping any
+ * tracks that fail to resolve/download (404, removed, private, region-blocked,
+ * age-gated, etc.) so a single bad entry never stalls playback.
+ *
+ * @returns {Promise<boolean>} true if a track started playing, false if the
+ *          queue was exhausted without finding a playable track.
+ */
+const playNext = async (player, connection, message, guildQueue) => {
+  const guildId = message.guild.id;
+  if (!global.currentSongMap) global.currentSongMap = new Map();
+
+  while (guildQueue.length > 0) {
+    const next = guildQueue.shift();
+    const nextUrl = next?.url;
+    if (!nextUrl) continue;
+
+    try {
+      const info = await getVideoInfo(nextUrl);
+      const nextTitle = info.title;
+      const fileSafeTitle = sanitizeTitle(nextTitle);
+
+      await ytdlp.downloadAudio(nextUrl, `./yt-dl-output/${fileSafeTitle}.%(ext)s`);
+
+      const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
+      if (!fs.existsSync(audioFile) || fs.statSync(audioFile).size === 0) {
+        throw new Error("downloaded audio file is missing or empty");
+      }
+
+      const resource = createAudioResource(audioFile);
+      // The player stays subscribed across tracks; only (re)subscribe when a
+      // fresh connection is supplied (manual play/skip entry points).
+      if (connection) connection.subscribe(player);
+      player.play(resource);
+
+      global.currentSongMap.set(guildId, { url: nextUrl, title: nextTitle });
+      message.channel.send({ content: `Now playing: ***${nextTitle}***` });
+      return true;
+    } catch (err) {
+      // Unavailable track: log it and keep looping to the next queue entry
+      // instead of stalling playback.
+      console.log("*** Skipping unavailable track:", next?.title || nextUrl, "-", err.message || err);
+    }
+  }
+
+  // Queue exhausted without a playable track.
+  global.currentSongMap.delete(guildId);
+  return false;
+};
+
 const handlePlay = async (args, videoTitle, message, player, connection, guildQueue) => {
   if (!args[1]) return message.channel.send({ content: `Please provide a song` });
 
@@ -166,38 +216,16 @@ const handleSkip = async (channel, player, connection, message, guildQueue) => {
     });
   }
   const skippedTitle = global.currentSongMap.get(message.guild.id)?.title;
-  const nextSong = guildQueue.shift()?.url;
 
-  if (!nextSong) {
-    return message.channel.send({ content: "Queue is empty or song has no URL." });
+  if (skippedTitle) {
+    message.channel.send({ content: `Skipped: ***${skippedTitle}***` });
   }
 
-  try {
-    const info = await getVideoInfo(nextSong);
-    const nextTitle = info.title;
-    const fileSafeTitle = sanitizeTitle(nextTitle);
-
-    await ytdlp.downloadAudio(nextSong, `./yt-dl-output/${fileSafeTitle}.%(ext)s`);
-
-    const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
-    const resource = createAudioResource(audioFile);
-
-    // Subscribe player to connection before playing
-    connection.subscribe(player);
-    player.play(resource);
-
-    global.currentSongMap.set(message.guild.id, {
-      url: nextSong,
-      title: nextTitle,
-    });
-
-    if (skippedTitle) {
-      message.channel.send({ content: `Skipped: ***${skippedTitle}***` });
-    }
-    message.channel.send({ content: `Now playing: ***${nextTitle}***` });
-  } catch (err) {
-    console.error("Error in handleSkip:", err);
-    message.channel.send({ content: `Error playing next song: ${err.message}` });
+  // playNext walks the queue, skipping any unavailable tracks, so a bad entry
+  // never leaves playback stalled.
+  const started = await playNext(player, connection, message, guildQueue);
+  if (!started) {
+    message.channel.send({ content: `There are no more playable songs in the queue!` });
   }
 };
 const handleLoop = (channel, message) => {
@@ -396,6 +424,7 @@ module.exports = {
   getPlaylistInfo,
   isUnavailable,
   debugCookieAuth,
+  playNext,
   handlePlaylist,
   handlePlay,
   handlePause,

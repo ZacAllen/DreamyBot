@@ -109,47 +109,11 @@ const initializePlayerListener = (player, guildQueue, message) => {
       }
     }
 
-    // Not looping - proceed to next song in queue
-    if (guildQueue.length === 0) {
-      if (global.currentSongMap) {
-        global.currentSongMap.delete(guildId);
-      }
-      return;
-    }
-
-    const nextSong = guildQueue.shift()?.url;
-    if (!nextSong) return;
-
-    try {
-      const info = await helpers.getVideoInfo(nextSong);
-      console.log("*** initializePlayerListener info", info.title);
-      const nextTitle = info.title;
-      const fileSafeTitle = helpers.sanitizeTitle(nextTitle);
-
-      await ytdlp.downloadAudio(nextSong, `./yt-dl-output/${fileSafeTitle}.%(ext)s`);
-
-      const audioFile = `./yt-dl-output/${fileSafeTitle}.mp3`;
-
-      // Verify file exists and is not empty before playing
-      if (!fs.existsSync(audioFile) || fs.statSync(audioFile).size === 0) {
-        message.channel.send({ content: `Error: Audio file for "${nextTitle}" is missing or empty. Skipping.` });
-        return; // Skip this song and wait for next idle event
-      }
-
-      const resource = createAudioResource(audioFile);
-      player.play(resource);
-
-      if (!global.currentSongMap) {
-        global.currentSongMap = new Map();
-      }
-      global.currentSongMap.set(guildId, {
-        url: nextSong,
-        title: nextTitle,
-      });
-      console.log("*** NOW PLAYING", nextTitle);
-    } catch (err) {
-      message.channel.send({ content: `Error playing next song: ${err}` });
-    }
+    // Not looping - proceed to next song in queue. playNext skips any
+    // unavailable tracks (404 / removed / private) automatically so a bad
+    // entry never leaves playback stalled. The player is already subscribed
+    // to the connection from the initial play, so no connection is needed here.
+    await helpers.playNext(player, null, message, guildQueue);
   });
 };
 
