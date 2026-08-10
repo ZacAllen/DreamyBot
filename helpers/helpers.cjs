@@ -338,26 +338,53 @@ const handleCurrent = async (channel, message, guildQueue) => {
       return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
     }
 
-    const songData = {
-      title: info.title,
-      url: currentSong.url,
-      description: info.description,
-      author: info.author,
-      duration: encodeDuration(info.duration),
-      views: info.views,
+    // Discord caps message content at 2000 characters. The description is the
+    // only unbounded field, so build the message and, if it overflows, trim the
+    // description just enough to fit while keeping the code block closed.
+    const DISCORD_LIMIT = 2000;
+
+    const buildMessage = (description) => {
+      const songData = {
+        title: info.title,
+        url: currentSong.url,
+        description,
+        author: info.author,
+        duration: encodeDuration(info.duration),
+        views: info.views,
+      };
+
+      // Format the output
+      var msg = "```json\n{";
+      for (var key in songData) {
+        if (songData.hasOwnProperty(key)) {
+          msg = msg + "\n " + key + ": " + JSON.stringify(songData[key], null, " ") + ",";
+        }
+      }
+      msg = msg.substring(0, msg.length - 1);
+      msg = msg + "\n}```";
+      return `**Current Song Info:**\n ${msg}`;
     };
 
-    // Format the output
-    var msg = "```json\n{";
-    for (var key in songData) {
-      if (songData.hasOwnProperty(key)) {
-        msg = msg + "\n " + key + ": " + JSON.stringify(songData[key], null, " ") + ",";
+    let content = buildMessage(info.description);
+
+    if (content.length > DISCORD_LIMIT) {
+      const ellipsis = "…";
+      // Removing N raw description chars removes at least N chars of output
+      // (JSON escaping only ever adds length), so trim by the overflow plus a
+      // small margin for the ellipsis to guarantee we land under the limit.
+      const overflow = content.length - DISCORD_LIMIT;
+      const keep = Math.max(0, (info.description?.length || 0) - overflow - ellipsis.length - 8);
+      content = buildMessage((info.description || "").slice(0, keep).trimEnd() + ellipsis);
+
+      // Final safety net for the edge case where description isn't the culprit:
+      // hard-clamp while preserving the closing code fence.
+      if (content.length > DISCORD_LIMIT) {
+        const fence = "\n}```";
+        content = content.slice(0, DISCORD_LIMIT - fence.length) + fence;
       }
     }
-    msg = msg.substring(0, msg.length - 1);
-    msg = msg + "\n}```";
 
-    message.channel.send({ content: `**Current Song Info:**\n ${msg}` });
+    message.channel.send({ content });
   } catch (err) {
     console.log("*** Get current song error:", err);
     message.channel.send({
