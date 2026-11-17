@@ -187,6 +187,37 @@ const handlePlay = async (args, videoTitle, message, player, connection, guildQu
   }
 };
 
+/**
+ * Queue a song to play right after the current one, ahead of the rest of the
+ * queue/playlist. The current song isn't in guildQueue (playNext shifts it off
+ * before playing), so the existing queue simply resumes after the inserted song.
+ * Multiple playnext calls stay in request order via the `priority` flag.
+ */
+const handlePlayNext = async (args, videoTitle, message, player, connection, guildQueue) => {
+  if (!args[1]) return message.channel.send({ content: `Please provide a song` });
+
+  if (args[1].includes("/playlist")) {
+    return message.channel.send({ content: `playnext only supports single songs. Use the playlist command for playlists.` });
+  }
+
+  if (!videoTitle) {
+    return message.channel.send({ content: `Error: Could not fetch video information. The video may be unavailable or restricted.` });
+  }
+
+  // Nothing playing: there is no "current song" to wait for, so just play it.
+  if (player.state.status === "idle") {
+    return handlePlay(args, videoTitle, message, player, connection, guildQueue);
+  }
+
+  // Insert after any earlier playnext entries but before the regular queue.
+  const firstRegular = guildQueue.findIndex((song) => !song.priority);
+  const index = firstRegular === -1 ? guildQueue.length : firstRegular;
+  guildQueue.splice(index, 0, { url: args[1], title: videoTitle, priority: true });
+
+  const loopNote = global.loopMap?.get(message.guild.id) ? " (loop is on, so it will play once loop is turned off)" : "";
+  message.channel.send({ content: `Will play ***${videoTitle}*** next${loopNote}` });
+};
+
 const handlePause = (channel, player, message) => {
   if (!channel)
     return message.channel.send({
@@ -430,8 +461,10 @@ const handleClear = (channel, message) => {
         content: "The queue is already empty.",
       });
     }
-    // Clear the queue by setting global songqueue to empty array
-    global.songQueue.set(guildId, []);
+    // Empty the array in place. The player's Idle listener holds a reference to
+    // this same array, so replacing it with a new [] would leave the listener
+    // reading the stale (still-populated) queue.
+    guildQueue.length = 0;
     message.channel.send({
       content: `The queue has successfully been cleared`,
     });
@@ -454,6 +487,7 @@ module.exports = {
   playNext,
   handlePlaylist,
   handlePlay,
+  handlePlayNext,
   handlePause,
   handleResume,
   handleSkip,

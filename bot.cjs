@@ -10,7 +10,6 @@ const {
 } = require("@discordjs/voice");
 const path = require("path");
 const { Client, Collection, Events, GatewayIntentBits } = require("discord.js");
-const { EmbedBuilder } = require("discord.js");
 const wiki = require("wikipedia");
 const helpers = require("./helpers/helpers.cjs");
 
@@ -129,14 +128,14 @@ client.on("messageCreate", async (message) => {
   if (message.content.startsWith(playPrefix)) {
     let args = message.content.substring(playPrefix.length).split(" ");
 
-    if (args[0] === `play` && !args[1]) {
+    if ((args[0] === `play` || args[0] === `playnext`) && !args[1]) {
       message.channel.send({
         content: `Please provide a youtube link.`,
       });
       return;
     }
 
-    const includeCommands = [`play`];
+    const includeCommands = [`play`, `playnext`];
 
     // Only fetch title for commands that need it!
     let videoTitle = null;
@@ -237,6 +236,9 @@ client.on("messageCreate", async (message) => {
         break;
       case "play":
         helpers.handlePlay(args, videoTitle, message, player, connection, guildQueue);
+        break;
+      case "playnext":
+        helpers.handlePlayNext(args, videoTitle, message, player, connection, guildQueue);
         break;
       case "pause":
         helpers.handlePause(channel, player, message);
